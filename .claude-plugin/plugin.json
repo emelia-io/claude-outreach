@@ -1,0 +1,14 @@
+{
+  "name": "claude-outreach",
+  "description": "Universal B2B outreach skill for Claude Code. Build the list, find and verify emails and mobiles, write the sequence, launch the campaign in Emelia, handle the replies, read the numbers.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Emelia",
+    "email": "contact@emelia.io",
+    "url": "https://emelia.io"
+  },
+  "homepage": "https://github.com/emelia-io/claude-outreach",
+  "repository": "https://github.com/emelia-io/claude-outreach",
+  "license": "MIT",
+  "keywords": ["outreach", "cold-email", "b2b", "lead-generation", "prospecting", "sales-automation", "email-finder", "linkedin", "mcp"]
+}

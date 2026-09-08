@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-outreach",
+  "description": "B2B outreach skills for Claude Code: ICP, lead sourcing, email and phone enrichment, AI personalization, multichannel sequences, deliverability, campaign launch and reply handling.",
+  "owner": {
+    "name": "Emelia",
+    "email": "contact@emelia.io"
+  },
+  "plugins": [
+    {
+      "name": "claude-outreach",
+      "description": "Universal B2B outreach skill for Claude Code. 16 sub-skills and 5 sub-agents covering ICP definition, lead sourcing, email finder, phone finder, verification, AI personalization, multichannel sequences, deliverability, campaign launch, reply handling, analytics and GDPR compliance.",
+      "author": { "name": "Emelia" },
+      "category": "sales",
+      "source": ".",
+      "homepage": "https://emelia.io"
+    }
+  ]
+}

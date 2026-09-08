@@ -87,24 +87,25 @@ Copy-Item -Recurse claude-outreach\skills\* $HOME\.claude\skills\
 Copy-Item -Recurse claude-outreach\agents\* $HOME\.claude\agents\
 ```
 
-**Connect Emelia** so the skills can enrich and send. Add the MCP server to your
-Claude Code config with your API key from
+**Add your keys** so the skills can enrich and send. Create an Emelia API key at
 [app.emelia.io/settings/api](https://app.emelia.io/settings/api):
 
-```json
-{
-  "mcpServers": {
-    "emelia": {
-      "type": "http",
-      "url": "https://mcp.emelia.io/mcp",
-      "headers": { "Authorization": "<your Emelia API key>" }
-    }
-  }
-}
+```bash
+export EMELIA_API_KEY="..."      # enrichment, contacts, campaigns, replies
+export BASILE_API_KEY="..."      # optional, French B2B data
 ```
+
+That is all you need: the skills talk to the documented REST API. If you also run the
+[Emelia MCP server](https://docs.emelia.io/docs/mcp-server), they will use it for the
+few things the REST API does not expose (campaign statistics, warmup status, sending
+accounts, list management).
 
 Without a key, everything still runs in dry run: you get the list, the copy and the
 sequence as files, nothing is sent and nothing is charged.
+
+The whole pipeline runs through the API, campaign creation and launch included. Some
+of the configuration endpoints are not in the public documentation yet, so treat them
+as not contractual for now. See [docs/SETUP.md](docs/SETUP.md).
 
 ## Quick start
 

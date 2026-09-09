@@ -571,12 +571,25 @@ Count them and say the number. Do not delete them silently.
 Fill `source` with `csv`, `source_url` with `file:<path>`, `lead_id` with
 `csv:<line number>`, and `collected_at` with today.
 
-### 4. Several sources at once
+### 4. Several sources at once, in parallel
 
-When the ICP has more than one segment, or the user wants France plus another market,
-dispatch one `outreach-lead-sourcer` sub-agent per source and merge the results. Keep
-`source` and `lead_id` intact through the merge: they are what makes the merge reversible
-and what lets `outreach-filter` explain a removal.
+Sourcing divides cleanly, so it runs as parallel agents rather than as a loop. One
+`outreach-lead-sourcer` per **disjoint** slice, launched in the same message: one per
+source when the user wants France plus another market, one per segment when the ICP has
+several, one per city or per department when a single segment is too big to pull in one
+call. Give each agent its own output file and merge afterwards.
+
+Disjoint is the word that matters. Two agents pulling overlapping filters pay twice for
+the same rows and then hand you a file that looks bigger than it is. Split on something
+the source itself can filter, a city, a NAF code, a headcount band, and count each slice
+for free before you extract it so you know what you are about to spend.
+
+Keep `source` and `lead_id` intact through the merge: they are what makes the merge
+reversible and what lets `outreach-filter` explain a removal. Deduplicate on `lead_id`
+first, then on the company domain if you want one decision maker per company.
+
+Tell the user what you launched and report each slice as it lands, with its count. A
+sourcing run that goes silent for ten minutes looks broken even when it is working.
 
 ## Output
 

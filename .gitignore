@@ -2,5 +2,7 @@
 node_modules/
 __pycache__/
 .venv/
-outreach/
+# The working directory a run produces, at the repo root only.
+# Never 'outreach/', which would also match skills/outreach/.
+/outreach/
 *.local

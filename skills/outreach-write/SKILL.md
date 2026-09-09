@@ -404,9 +404,22 @@ opener sounds the same. Split the contacts and fan out.
 4. Tell the user what you launched before it starts, and report each slice as it lands.
    Silence for ten minutes reads as a hang.
 5. Read the outputs back and check them yourself, against the brief: the count, the ids,
-   the lengths, the forbidden characters, the repeated openers **across** slices, which is
-   the one failure no single agent can see. Fix by re-running a slice with a sharper
-   brief, never by editing a hundred messages by hand.
+   the lengths, the forbidden characters, and the repetition **across** slices, which is
+   the one failure no single agent can see:
+
+   ```bash
+   python3 scripts/check-repetition.py outreach/copy/out-*.json
+   ```
+
+   It reports every sentence more than a couple of contacts share, and which step it
+   sits in. Expect the subject lines and the openers to come back clean and the **asks**
+   to be the problem: on a real run of 75 contacts the same closing question came back
+   17 times, because every agent reached for the same phrasing once the personalised
+   part was written. The offer facts are allowed to repeat, they are facts. The question
+   at the end is not: it is the line that earns the reply, and a hundred people getting
+   the same one is a hundred people getting a template. Fix it by rewriting those
+   sentences with a rotation of genuinely different asks, or by re-running the slices
+   with an instruction to vary the ask, never by editing a hundred messages by hand.
 
 Tell each agent to write the messages itself and not to write a script that generates
 them. An agent that hits a wall on a long task will reach for a template loop, and a

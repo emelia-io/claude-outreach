@@ -40,6 +40,7 @@ edit and re-run. Nothing is a black box.
 | `/outreach campaign <spec>` | Create and launch the campaign in Emelia |
 | `/outreach replies` | Triage replies, draft answers, handle unsubscribes |
 | `/outreach audit <campaign>` | Rates per step and per variant, against benchmarks, what to change |
+| `/outreach update` | Say whether this checkout is behind the published repository, and what changed |
 
 No command given? Ask what the user wants to do, then suggest `/outreach pilot`
 if they have never run a campaign, or `/outreach full` if they know their market.
@@ -303,9 +304,14 @@ mid-run should see a campaign filling up, not an empty account.
 
 ## Keep the plugin up to date
 
-This repository moves. Run `scripts/check-update.sh` at the start of a run and once a
-day inside a long one. It makes a single call to the remote and prints one line:
-`up to date`, or `behind by N commits, run: git -C <dir> pull`.
+This repository moves. `/outreach update` runs the check on demand, and you run it
+yourself at the start of a run and once a day inside a long one:
+
+```bash
+bash scripts/check-update.sh
+```
+ One call to the remote, one line back: `up to date`, or
+`behind by N commits, run: git -C <dir> pull`.
 
 When it says behind, tell the user in one sentence, with the command, and say what
 changed if you can see it. Do not pull on their behalf: it is their checkout, and a run

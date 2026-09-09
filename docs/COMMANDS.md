@@ -401,3 +401,23 @@ need Emelia run in dry run: they produce their file, state what they would have
 called and what it would have cost, and change nothing. See
 [SETUP.md](SETUP.md) for the keys and [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for
 when one of them stops working.
+
+## `/outreach update`
+
+Says whether this checkout is behind the published repository. One call to the remote,
+one line back:
+
+```bash
+bash scripts/check-update.sh
+```
+
+```
+up to date (2026.09.09)
+behind by 7 commits, run: git -C /Users/you/claude-outreach pull
+unknown: installed without git, reinstall to get updates
+```
+
+The skills run it at the start of a run and tell you when there is something to pull.
+They never pull for you: it is your checkout, and swapping a run's instructions
+underneath it mid run is how a campaign ends up half built on two different sets of
+rules. Finish the run, then pull.

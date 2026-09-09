@@ -97,6 +97,9 @@ Field rules:
   This is the dedup and exclusion key, so it matters more than `company_website`.
 - `company_headcount`: an integer number of employees. When the source only gives a
   band, write the lower bound and put the band in `x_headcount_band`.
+- `x_trade_name`: not one of the 26, but fill it whenever the source gives a trading
+  name, an `enseigne` or a Google listing name that differs from `company_name`. The
+  email finder uses it as its third attempt and recovers rows the legal name misses.
 - `country_code`: ISO 3166-1 alpha-2, uppercase.
 - `segment`: the `id` of the segment in `icp.json` this row belongs to. Never empty when
   an ICP exists.
@@ -140,12 +143,13 @@ under `FindPeopleFilters` or `FindCompaniesFilters`, read its description, fix t
 body. Guessing a second name after the first was refused is how you end up with a
 query that is accepted and silently means something else.
 
-The same applies to values. Three lookups are free and unlimited, and they exist so
-you stop inventing values:
+The same applies to values. Four lookups are free and unlimited, and they exist so you
+stop inventing values:
 
 ```bash
 curl -s "https://api.basile.cc/companies/activity-suggest?q=logiciel" -H "Authorization: $BASILE_API_KEY"
 curl -s "https://api.basile.cc/people/roles/suggest?q=directeur"      -H "Authorization: $BASILE_API_KEY"
+curl -s "https://api.basile.cc/people/cities/suggest?q=saint-et"      -H "Authorization: $BASILE_API_KEY"
 curl -s "https://api.basile.cc/companies/legal-form-suggest?q=SAS"    -H "Authorization: $BASILE_API_KEY"
 ```
 
@@ -225,7 +229,7 @@ the user. Build the angles from these:
 |---|---|---|
 | **Title variants** | `result_role.include` | The same job is written five ways in France: `CTO`, `Directeur Technique`, `Directeur des Systemes d'Information`, `VP Engineering`, `Responsable Technique`. Put every spelling in one query, and check each with `roles/suggest` first. |
 | **Adjacent job families** | a second `result_role` set | The person who buys is not always the person with the title in the brief. Around a CTO sit `Head of Platform`, `Lead Dev`, `DSI`, and in a 20 person company the CEO. One query per family, because you will want to write to them differently. |
-| **Size bands** | `company_headcount` | `{">=":10,"<=":49}` and `{">=":50,"<=":199}` are two markets with two messages. Splitting also keeps each export under the plan's ceiling. |
+| **Size bands** | `company_headcount` | `{">=":20,"<=":49}` and `{">=":50,"<=":200}` are two markets with two messages. Splitting also keeps each export under the plan's ceiling. |
 | **Sector granularity** | `activity.include` | One broad concept, then the two or three narrower ones that matter. Count all of them: a narrow concept sometimes holds most of the volume. |
 | **Geography** | `result_city`, or `headquarters_postal_code` on companies | Split by department when a national count is too large to export in one call. Departments do not overlap, which is worth a lot at merge time. |
 | **Source** | registry only vs LinkedIn only | The registry knows officers and SIREN, LinkedIn knows employees and job titles. When you need a registry-only filter and a LinkedIn-only filter, that is two queries, never one. See the trap above. |
@@ -241,10 +245,10 @@ A plan for "CTOs of French SaaS companies, 20 to 200 people" looks like this:
 
 ```
 Q1  core titles, 20-49    role[CTO, Directeur Technique, VP Engineering] + activity[software] + headcount 20-49
-Q2  core titles, 50-199   same, headcount 50-199
-Q3  adjacent titles       role[Head of Platform, Lead Developer, DSI] exclude[the Q1 titles] + same activity + 20-199
+Q2  core titles, 50-200   same, headcount 50-200
+Q3  adjacent titles       role[Head of Platform, Lead Developer, DSI] exclude[the Q1 titles] + same activity + 20-200
 Q4  small company CEOs    role[CEO, President, Directeur General] + same activity + headcount 20-49
-Q5  registry officers     mandate_role[president, dg] + activity[software] + headcount 20-199, registry only
+Q5  registry officers     mandate_role[president, dg] + activity[software] + headcount 20-200, registry only
 ```
 
 #### 1c. Count every query, for free, before you extract anything
@@ -505,6 +509,7 @@ digit-only cell) rather than labels, ask whether the file has a header.
 | `company_website` | website, site, site web, url, company url |
 | `company_headcount` | employees, headcount, size, effectif, taille, employee count |
 | `company_siren` | siren, siret |
+| `x_trade_name` | trade name, trading name, commercial name, enseigne, nom commercial, brand, dba |
 | `city` | city, ville, town, localite |
 | `country_code` | country, pays, country code |
 

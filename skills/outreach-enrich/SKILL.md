@@ -1,6 +1,6 @@
 ---
 name: outreach-enrich
-description: "The full enrichment waterfall on a lead list: filter first, find the missing emails, verify only the addresses that came from somewhere other than Emelia's finder, find mobile numbers only where they are worth 50 credits, then decide row by row who is sendable, who is on hold and who is dropped. Runs under a credit budget fixed before the first call and stops when it is reached. Writes outreach/enrichment.json with every counter and updates outreach/leads.csv without losing a single original column, then fills the custom fields your sequence needs. Triggers on: enrich, enrichment, enrich my list, waterfall, find and verify, clean and enrich, contact data, credits budget, how much will this cost, prepare my list, custom fields."
+description: "The full enrichment waterfall on a lead list: filter first, find the missing emails, verify only the addresses that came from somewhere other than Emelia's finder, find mobile numbers only where they are worth 50 credits, then decide row by row who is sendable, who is on hold and who is dropped. Ends by routing the rows to separate destinations, one list per destination: addresses found go to the email campaign list, rows with no address but a valid LinkedIn profile URL are proposed as a separate LinkedIn campaign, and the rest is set aside and counted. Never pushes a whole enriched base into a single Emelia list. Runs under a credit budget fixed before the first call and stops when it is reached. Writes outreach/enrichment.json with every counter and updates outreach/leads.csv without losing a single original column, then fills the custom fields your sequence needs. Triggers on: enrich, enrichment, enrich my list, waterfall, find and verify, clean and enrich, contact data, credits budget, how much will this cost, prepare my list, custom fields, route the list, split the list, push to Emelia, LinkedIn campaign for the rest."
 license: MIT
 metadata:
   author: Emelia
@@ -18,6 +18,12 @@ control, decide, then phone numbers for the small group that deserves a call. It
 under a credit budget you set before the first call and stops when it hits it. At the
 end every row carries a decision (`send`, `hold`, `drop`) and the file says why.
 Nothing is quietly dropped, nothing is quietly guessed, and nothing is verified twice.
+
+Then it **routes**. An enriched list is not one list: the rows with an address go to
+the email campaign, the rows with no address but a real LinkedIn profile are a
+different channel, and the rest goes nowhere. Each destination gets its own file and
+its own Emelia list. Pushing the whole base into one list is the mistake this step
+exists to prevent.
 
 ## When to use it
 
@@ -46,11 +52,21 @@ row you delete ten minutes later are gone.
   and adds the list management tools used at the end.
 
 Columns the waterfall reads: `first_name`, `last_name` (or `fullname`), `company_name`,
-`company_domain` (or `website`), `country`, `linkedin_url`, `email` if some rows already have
+`company_domain` (or `website`), `country`, `linkedin_url`, `x_trade_name` if the
+source gave one (the finder's third attempt uses it), `email` if some rows already have
 one. Map the user's real column names once, at the start, and say what you mapped.
 
+`linkedin_url` matters twice here, so do not treat it as decoration: it is the only
+input the phone finder accepts, and it is what decides whether a row with no address
+has a second channel or none at all.
+
+An Emelia list id, or permission to create one, before the routing step. Not needed
+until then, so ask for it at the end and not at the start.
+
 Missing key, no budget, or no filtered list: say which one is missing and stop. In
-dry run, produce the plan and the cost estimate and spend nothing.
+dry run, produce the plan and the cost estimate and spend nothing. Dry run still
+produces the four destination files, because splitting the rows costs nothing and it
+is often the answer the user actually wanted.
 
 ## How to do it
 
@@ -69,6 +85,11 @@ filter
   |   brought yourself                            1 credit for a fresh address
   |
   +-- both branches ------------> decide ------> find phone (chosen subset only)
+                                    |
+                                    +-- route --> email list      (address found)
+                                                \ LinkedIn list   (no address, real profile)
+                                                \ hold list       (needs a decision)
+                                                \ dropped         (counted, not deleted)
 ```
 
 - **Filter before anything.** A found email on a row you exclude is a credit burnt.
@@ -167,19 +188,20 @@ three steps and report once: the user must be able to stop between them.
 Apply in order, first match wins. The `verdict` column says where the answer came
 from, so you can see at a glance that no row was paid for twice:
 
-| Row state | Verdict from | Decision | Written reason |
-|-----------|--------------|----------|----------------|
-| No email, no LinkedIn URL | nothing | `drop` | `no reachable channel` |
-| Email `invalid` | verifier, or the finder's own answer | `drop` | `would hard bounce` |
-| Email `unknown` after two attempts | verifier | `drop` | `no verdict, not worth the reputation` |
-| Email is a role mailbox (`contact@`, `info@`) | any | `hold` | `role mailbox, not a person` |
-| Email `valid`, domain known catch-all | verifier | `hold` | `catch-all domain, unproven` |
-| Email `valid`, returned by the finder | finder | `send` | `found and verified by Emelia` |
-| Email `risky` from the finder, then verified `valid` on a domain that is not catch-all | verifier | `send` | `risky find, verified` |
-| Email `risky` from the finder, not verified | nothing | `hold` | `unproven, verify it or drop it` |
-| Email `valid`, carried in, domain not catch-all | verifier | `send` | `verified` |
-| No email, LinkedIn URL present, in the priority segment | nothing | `hold` | `phone or LinkedIn channel only` |
-| No email, LinkedIn URL present, not priority | nothing | `drop` | `no email, not worth a 50 credit lookup` |
+| Row state | Verdict from | Decision | Destination | Written reason |
+|-----------|--------------|----------|-------------|----------------|
+| No email, no LinkedIn URL | nothing | `drop` | none | `no reachable channel` |
+| Email `invalid`, no LinkedIn URL | verifier, or the finder's own answer | `drop` | none | `would hard bounce` |
+| Email `invalid`, LinkedIn URL present | verifier | `drop` for email | `linkedin` | `bad address, real profile` |
+| Email `unknown` after two attempts | verifier | `drop` | none | `no verdict, not worth the reputation` |
+| Email is a role mailbox (`contact@`, `info@`) | any | `hold` | `hold` | `role mailbox, not a person` |
+| Email `valid`, domain known catch-all | verifier | `hold` | `hold` | `catch-all domain, unproven` |
+| Email `valid`, returned by the finder | finder | `send` | `email` | `found and verified by Emelia` |
+| Email `risky` from the finder, then verified `valid` on a domain that is not catch-all | verifier | `send` | `email` | `risky find, verified` |
+| Email `risky` from the finder, not verified | nothing | `hold` | `hold` | `unproven, verify it or drop it` |
+| Email `valid`, carried in, domain not catch-all | verifier | `send` | `email` | `verified` |
+| No email, LinkedIn profile URL present | nothing | `hold` | `linkedin` | `no address, LinkedIn channel only` |
+| No email, only a LinkedIn company page URL | nothing | `drop` | none | `company page, not a person` |
 
 The order of the rows matters: the drops and the holds come first on purpose, so a
 role mailbox that verifies valid is held rather than sent.
@@ -190,10 +212,32 @@ it. Nothing about the row is less proven than a carried-in address you paid to c
 the same kind of check produced both, one of them was just included in the price of
 the find.
 
+Write both columns on every row, `send_decision` and `destination`. The decision says
+what you concluded, the destination says where the row goes, and step 7 does nothing
+but read the second one. A row has exactly one destination: a person who is in the
+email list and in the LinkedIn list is a bug, and it is also the fastest way to look
+like a machine to that person.
+
 `send` rows go into the campaign. `hold` rows go into a second, smaller batch or into
 a different channel, never mixed into the first send. `drop` rows stay in the file
 with their reason, so the user can see the cost of their data quality instead of
 watching rows disappear.
+
+**Before a row is routed to `linkedin`, check the URL is a person.** Normalise it,
+then keep it only if it survives:
+
+- lowercase the host, drop the query string and the trailing slash;
+- it must match `https://www.linkedin.com/in/<slug>` with a non empty slug;
+- `linkedin.com/company/<slug>` is a company page, not a person: destination none;
+- a Sales Navigator link (`/sales/lead/...`) is a seat bound URL that the campaign
+  cannot use: try to recover the public `/in/` URL from the source row, otherwise
+  destination none;
+- an empty slug, a search URL or a `/pub/dir/` link is not a profile;
+- deduplicate on the normalised URL, because two rows pointing at the same profile
+  would send the same person two connection requests.
+
+Count what each rule removed. "412 rows had no email, 361 had a usable profile URL, 51
+had a company page or a Sales Navigator link" is the useful sentence.
 
 Then check the aggregate before declaring anything ready: projected bounce rate on
 the `send` group must be under 2%, per `outreach-verify`. If it is not, the run is
@@ -257,10 +301,109 @@ ceiling with headroom:
   minutes. The verification pass adds only a few minutes now that it runs on the
   carried-in rows instead of the whole list. That is the quota, not the API.
 
-### 7. Fill the custom fields the sequence needs
+### 7. Route the rows, one list per destination
+
+**Never push the whole enriched base into a single Emelia list.** This is the rule of
+this step and it has three concrete reasons, worth saying to the user once:
+
+1. **A list attached to a running campaign feeds it continuously.** Every contact you
+   add enters the campaign on its own. So a row with no address, a role mailbox or a
+   catch-all row dropped into the campaign list is not sitting there harmlessly, it is
+   queued to be sent to.
+2. **Different destinations are different channels.** An email campaign and a LinkedIn
+   campaign have different sending accounts, different daily limits and different
+   copy. One list cannot feed both.
+3. **A mixed list ruins your reading of the results.** A bounce rate that comes from
+   unverified rows you should not have added looks exactly like a copy problem, and
+   you will spend a week rewriting the wrong thing.
+
+Write one file per destination. These are plain CSVs in `outreach/`, they cost
+nothing, and they are what you show the user before anything is created in Emelia:
+
+| File | Who is in it | What happens to it |
+|---|---|---|
+| `outreach/list-email.csv` | `destination = email` | Becomes the email campaign list. This is the only one that is pushed by default, and still only after the user says yes |
+| `outreach/list-linkedin.csv` | `destination = linkedin` | **Proposed** as a separate LinkedIn campaign. Nothing is created until the user asks |
+| `outreach/list-hold.csv` | `destination = hold` | Waits for a decision: verify the risky ones, or drop them. Never merged into the email list |
+| `outreach/list-dropped.csv` | everything else | Counted, kept with its reason, sent nowhere |
+
+Split further when the copy differs: one list per segment inside the email
+destination, because a list is what a campaign consumes and two segments with two
+sequences are two campaigns. Name them `list-email-<segment>.csv`.
+
+**The email destination.** Create the list, then add the rows to it, then attach the
+list to the campaign. There is no documented REST route that creates a list, so use
+the MCP tool `create_list` with a `name`, or create it in the Emelia app and take its
+id. Then push with `add_contacts_to_list_bulk` (up to 100 flat contacts per call,
+`updateIfExists: true` so a re-run does not duplicate), or one row at a time over
+REST as in step 8. Report the `created` / `duplicates` / `updated` / `failed`
+breakdown it returns, as it is.
+
+Attaching the list to the campaign is `outreach-campaign`'s job, with
+`PATCH /advanced/campaigns/{id}/recipients` and its `lists` and `excludedLists`
+fields. Hand over the list id and its name rather than doing it here, and remember
+what attaching means: from that moment the list feeds the campaign, so the list you
+hand over must contain only rows you are willing to send to today.
+
+Typical shape of that campaign, for context rather than as a decision made here: four
+steps, and a freshly created Emelia campaign already carries four empty ones. Five is
+reasonable. The step count, the delays and the A/B variants belong to
+`outreach-sequence`, not here.
+
+**The LinkedIn destination, which you propose and do not create.** Write the file,
+then stop and ask. Something like:
+
+```
+361 rows had no email address but a usable LinkedIn profile.
+
+They are in outreach/list-linkedin.csv. They are not in the email campaign and they
+never will be: there is no address to send to.
+
+A LinkedIn campaign would reach them, and it is a different exercise: it needs a
+LinkedIn account connected in Emelia, it runs at a much lower daily volume than
+email, and the sequence is a connection request followed by at most three messages.
+
+Want me to prepare it? (yes / not now / show me 10 of them first)
+```
+
+Only if the user says yes: create the LinkedIn campaign with
+`POST /linkedin/campaigns` (it takes a `name` and nothing else), then add the contacts.
+Watch the field name, because the two LinkedIn routes disagree and a wrong key is a
+400 every time:
+
+```bash
+# into a LinkedIn list: the profile URL is "url"
+curl -s -X POST https://api.emelia.io/linkedin/lists/contacts \
+  -H "Authorization: $EMELIA_API_KEY" -H "Content-Type: application/json" \
+  -d '{"id":"<linkedinListId>","contact":{"url":"https://www.linkedin.com/in/marie-dupont-1a2b3c",
+       "firstName":"Marie","lastName":"Dupont"}}'
+
+# straight into a LinkedIn campaign: the same value is "linkedinUrlProfile"
+curl -s -X POST https://api.emelia.io/linkedin/campaign/contacts \
+  -H "Authorization: $EMELIA_API_KEY" -H "Content-Type: application/json" \
+  -d '{"id":"<linkedinCampaignId>","contact":{"linkedinUrlProfile":"https://www.linkedin.com/in/marie-dupont-1a2b3c",
+       "firstName":"Marie","lastName":"Dupont"}}'
+```
+
+If the user has no LinkedIn account connected in Emelia, say so, keep the file, and
+leave it there. A CSV nobody can use today is still better than a channel you never
+mentioned.
+
+**The hold list.** Say what would unlock it and what it would cost: verifying the
+risky finds at 0.25 credit each, or dropping them. Do not decide alone, and do not
+quietly merge it into the email list because the numbers look better that way.
+
+**The dropped list.** Kept, counted, grouped by reason. It is the data quality report
+of the whole run, and it is what tells the user whether to change the source or the
+targeting next time.
+
+Whatever you do here, the check is simple: the four files must add up to the row count
+that came in, and no `lead_id` may appear in two of them.
+
+### 8. Fill the custom fields the sequence needs
 
 Enrichment is only useful if the values reach the campaign, so do this last, once
-the decisions exist. Push contacts with their fields into the list attached to the
+the routing exists. Push contacts with their fields into the list attached to the
 campaign, which is how a contact enters a running campaign:
 
 ```bash
@@ -288,6 +431,15 @@ With the MCP server, `add_contacts_to_list_bulk` takes up to 100 flat contacts p
 call and reports created, duplicate, updated and failed per row, with `updateIfExists`
 to re-run without creating duplicates.
 
+One published schema to watch: `POST /advanced/lists/contacts` lists both
+`linkedinUrlProfile` and `email` as required on the contact. Send both when you have
+them. If a row with an address but no profile URL is refused for that reason, push it
+with the MCP bulk tool instead, which takes a flat contact and does not impose the
+pair, and say which route you used.
+
+Push only the rows of the destination you are working on. The list you feed here is
+the email list from step 7, not `leads.csv`.
+
 Three rules on custom fields. Every variable used in `sequence.md` must exist on every
 `send` row, because a missing variable is what produces "Hi ," in a real inbox. Give
 every variable a fallback that reads naturally in the sentence. And never write a
@@ -302,16 +454,30 @@ Every original column, in its original order, untouched. Enrichment columns are
 appended to the right:
 
 ```csv
-first_name,last_name,company_name,company_domain,linkedin_url,source,email,email_source,email_status,email_verification,verification_source,email_domain_type,email_verified_at,phone,phone_country,phone_type,send_decision,decision_reason
-Marie,Dupont,Emelia,emelia.io,https://www.linkedin.com/in/marie-dupont-1a2b3c,basile,marie@emelia.io,finder,valid,valid,finder,standard,2026-09-09,+33612345678,FR,mobile,send,found and verified by Emelia
-Paul,Martin,Kavia,kavia.fr,https://www.linkedin.com/in/paul-martin-9z8y7x,csv,p.martin@kavia.fr,csv,,invalid,verifier,standard,2026-09-09,,,,drop,would hard bounce
-Sofia,Neri,Kotive,kotive.fr,https://www.linkedin.com/in/sofia-neri,basile,sofia.neri@kotive.fr,finder,risky,valid,verifier,standard,2026-09-09,,,,send,risky find verified
-Luc,Bernard,Vantia,vantia.fr,,csv,contact@vantia.fr,csv,,valid,verifier,standard,2026-09-09,,,,hold,role mailbox not a person
-Julien,Roche,Emelia,emelia.io,,basile,,,not_found,,,,2026-09-09,,,,drop,no reachable channel
+first_name,last_name,company_name,company_domain,linkedin_url,source,email,email_source,email_status,email_verification,verification_source,email_domain_type,email_verified_at,phone,phone_country,phone_type,send_decision,destination,decision_reason
+Marie,Dupont,Emelia,emelia.io,https://www.linkedin.com/in/marie-dupont-1a2b3c,basile,marie@emelia.io,finder,valid,valid,finder,standard,2026-09-09,+33612345678,FR,mobile,send,email,found and verified by Emelia
+Paul,Martin,Kavia,kavia.fr,https://www.linkedin.com/in/paul-martin-9z8y7x,csv,p.martin@kavia.fr,csv,,invalid,verifier,standard,2026-09-09,,,,drop,linkedin,bad address but a real profile
+Sofia,Neri,Kotive,kotive.fr,https://www.linkedin.com/in/sofia-neri,basile,sofia.neri@kotive.fr,finder,risky,valid,verifier,standard,2026-09-09,,,,send,email,risky find verified
+Luc,Bernard,Vantia,vantia.fr,,csv,contact@vantia.fr,csv,,valid,verifier,standard,2026-09-09,,,,hold,hold,role mailbox not a person
+Julien,Roche,Emelia,emelia.io,,basile,,,not_found,,,,2026-09-09,,,,drop,,no reachable channel
 ```
 
 `verification_source` is the column that proves the rule held: every row that reads
-`finder` there is a row you did not pay to check twice.
+`finder` there is a row you did not pay to check twice. `destination` is the column
+step 7 reads, and the one that keeps the four output lists disjoint.
+
+### The destination lists
+
+`outreach/list-email.csv`, `outreach/list-linkedin.csv`, `outreach/list-hold.csv` and
+`outreach/list-dropped.csv`. Same columns as `leads.csv`, one file per destination,
+and their row counts add up to the row count of `leads.csv`. The LinkedIn one carries
+the normalised profile URL and nothing about email:
+
+```csv
+lead_id,first_name,last_name,full_name,job_title,company_name,company_domain,linkedin_url,segment,decision_reason
+basile:66f1a4d071,Paul,Martin,Paul Martin,CTO,Kavia,kavia.fr,https://www.linkedin.com/in/paul-martin-9z8y7x,fr-saas-cto,bad address but a real profile
+basile:66f1a51b30,Ines,Fabre,Ines Fabre,Head of Platform,Solveo,solveo.fr,https://www.linkedin.com/in/ines-fabre,fr-saas-cto,"no address, LinkedIn channel only"
+```
 
 ### `outreach/enrichment.json`
 
@@ -371,11 +537,31 @@ top level; when the waterfall runs, the sections live under `steps`.
     "hold_reasons": { "catch-all domain unproven": 12, "role mailbox": 11 },
     "drop_reasons": {
       "would hard bounce": 18, "no email found, no reachable channel": 62,
-      "no email found, LinkedIn only, not priority": 16,
       "no verdict, not worth the reputation": 2,
       "finder error, not retried": 4,
       "no name or company, never looked up": 18
     }
+  },
+  "routing": {
+    "rule": "one list per destination, a row belongs to exactly one",
+    "email": {
+      "rows": 269, "file": "outreach/list-email.csv",
+      "list_id": "66f2b0c1a4", "list_name": "FR SaaS CTO, September",
+      "pushed": true, "created": 266, "duplicates": 3, "updated": 0, "failed": 0
+    },
+    "linkedin": {
+      "rows": 61, "file": "outreach/list-linkedin.csv",
+      "profile_urls_normalised": 61, "company_pages_rejected": 9,
+      "sales_navigator_urls_rejected": 5, "duplicate_profiles_removed": 2,
+      "proposed": true, "created_in_emelia": false,
+      "note": "waiting for the user, no LinkedIn campaign exists yet"
+    },
+    "hold": {
+      "rows": 23, "file": "outreach/list-hold.csv",
+      "unlock_cost_credits": 5.75, "pushed": false
+    },
+    "dropped": { "rows": 59, "file": "outreach/list-dropped.csv" },
+    "checksum": { "in": 412, "email_linkedin_hold_dropped": 412, "overlap": 0 }
   },
   "bounce_projection": { "send_group": 0.0, "verdict": "safe to send" },
   "pending_jobs": [],
@@ -383,6 +569,7 @@ top level; when the waterfall runs, the sections live under `steps`.
     "218 finder results went straight to the send group. Verifying them would have cost 54.5 credits and returned the same verdict.",
     "18 rows had no name or company and were never sent to the finder.",
     "9 of 34 tested domains are catch-all, which is why 12 rows are on hold.",
+    "61 rows with no address have a real LinkedIn profile. Proposed as a separate campaign, nothing created.",
     "No phone lookups ran. The 269 sendable rows have a LinkedIn URL if you want them."
   ]
 }
@@ -391,8 +578,8 @@ top level; when the waterfall runs, the sections live under `steps`.
 ### The spoken summary
 
 ```
-412 rows in, 269 ready to send (65%), 23 on hold, 120 dropped. 273 credits spent
-of a 300 cap, 977 left.
+412 rows in, 269 ready to send (65%), 23 on hold, 120 with no address. 273 credits
+spent of a 300 cap, 977 left.
 
 Of the 269: 218 came from the finder already verified, 37 were addresses you
 brought that I verified here, 14 were risky finds that verified clean.
@@ -400,15 +587,34 @@ brought that I verified here, 14 were risky finds that verified clean.
 The verification pass cost 32 credits instead of 90, because the 218 finder
 results were not checked twice. That is 54.5 credits kept.
 
-The 120 dropped are not lost data: 62 had no findable email and no other channel,
-18 would have bounced, 18 had no name or company to search on, 16 had a LinkedIn
-URL but were not worth a 50 credit lookup, 4 errored, 2 got no verdict. They are
-still in leads.csv with their reason.
+They are not all going to the same place. Four files, no row in two of them:
+
+  outreach/list-email.csv       269   the email campaign, four steps
+  outreach/list-linkedin.csv     61   no address, but a real LinkedIn profile
+  outreach/list-hold.csv         23   role mailboxes and catch-all domains
+  outreach/list-dropped.csv      59   nothing to reach them with
+
+The 269 are in the Emelia list "FR SaaS CTO, September": 266 created, 3 were
+already there. Nothing has been sent, the campaign is not started.
+
+The 61 LinkedIn rows are a proposal, not a campaign. They have no email address
+and never will, so email is closed for them. A LinkedIn campaign needs an account
+connected in Emelia, runs at a much lower daily volume, and its sequence is a
+connection request then at most three messages. Want me to prepare it?
+
+The 23 on hold need one decision: 5.75 credits to verify the risky ones, or drop
+them. They are not in the campaign either way.
+
+The 59 dropped are not lost data: 37 had no findable email and no profile, 18 had
+no name or company to search on, 4 errored. They are still in leads.csv with their
+reason.
 
 Bounce projection on the 269: near zero. Ready for outreach-write.
 ```
 
-Say the percentage. Say what the discipline saved. Never say "the list is enriched".
+Say the percentage. Say what the discipline saved. Say where each group went. Never
+say "the list is enriched", and never say "the list is in Emelia" when four different
+groups went four different ways.
 
 ## Checks before finishing
 
@@ -420,7 +626,18 @@ Say the percentage. Say what the discipline saved. Never say "the list is enrich
   the file: no row may have `email_source: finder`, `email_status: valid` and
   `verification_source: verifier` at the same time. Report the count you skipped and
   the credits it saved, in the summary the user reads.
-- Every row in `leads.csv` has a `send_decision` and a `decision_reason`.
+- Every row in `leads.csv` has a `send_decision`, a `destination` and a
+  `decision_reason`.
+- **The four destination files exist and are disjoint.** Their row counts add up to the
+  row count of `leads.csv`, and no `lead_id` appears in two of them. A row in both the
+  email list and the LinkedIn list is a bug, not a double chance.
+- **Nothing was pushed to Emelia except the email destination**, and only after a yes.
+  The LinkedIn list was proposed, not created: check that no `POST /linkedin/campaigns`
+  was called unless the user asked for it in this session.
+- Every URL in the LinkedIn list is a `linkedin.com/in/<slug>` profile. No company
+  page, no Sales Navigator link, no duplicate profile.
+- The summary names the four groups with their counts, and says the LinkedIn one is a
+  proposal.
 - Every original column survived, in order, unchanged. Diff the header against the
   input file and confirm the first N columns are identical.
 - The row count out equals the row count in. Nothing was deleted, only decided.
@@ -474,6 +691,33 @@ verdict. Re-running a find or a phone lookup on a row you already paid for is ch
 again, including when Emelia serves it from its own cache. The file on disk is your
 protection against paying twice.
 
+**Everything went into one Emelia list.** The failure this step exists to prevent, and
+it is silent until the campaign runs. Symptoms: the list contact count equals the row
+count of `leads.csv`, or the campaign starts sending to rows that have no address, or
+the bounce rate on day one is far above the projection. If the list is not attached to
+a running campaign yet, delete the rows that do not belong and push the email
+destination only. If it is already running, pause the campaign first, then clean the
+list, then explain what happened rather than letting the numbers speak.
+
+**A LinkedIn campaign was created without being asked for.** The rule is propose, then
+wait. If it was created and nothing has been sent, say so and offer to delete it. If
+connection requests went out, they are not reversible, so say that plainly.
+
+**The LinkedIn list is full of company pages.** `linkedin_url` in a sourced list often
+holds `linkedin.com/company/<slug>`, because the row's company had a page and the
+person did not. Those rows are not reachable on LinkedIn either. Apply the URL rules
+of step 4, count what they removed, and do not present a company page count as a reach
+number.
+
+**A person is in the email list and the LinkedIn list.** The destination rule was
+applied twice, or a duplicate was never merged. Fix the merge, not the symptom: that
+person would get an email and a connection request from the same company in the same
+week, which is exactly what makes people mark you as spam.
+
+**The hold list was merged into the email list because the numbers looked thin.** A
+role mailbox and a catch-all domain do not become safe because you need volume. Send
+the 269 you have, and go back to the source for more rows.
+
 ## Limits
 
 This skill spends money on the user's behalf, so it does nothing without an explicit
@@ -484,6 +728,12 @@ It does not build the list, does not filter it, does not write the copy, does no
 check your sending setup and does not launch anything. Those are `outreach-leads`,
 `outreach-filter`, `outreach-write`, `outreach-deliverability` and
 `outreach-campaign`.
+
+It routes, it does not launch. It creates the email list and fills it when you say so,
+and it stops there: the sequence, the schedule and the start belong to
+`outreach-sequence` and `outreach-campaign`. The LinkedIn destination is only ever a
+proposal here, and creating that campaign needs a LinkedIn account connected in Emelia,
+which this skill cannot check for you.
 
 It cannot make a bad list good. If 60% of the rows drop out, the problem is upstream:
 the targeting, the source, or the column mapping. Say that instead of running the

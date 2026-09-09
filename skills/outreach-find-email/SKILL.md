@@ -219,6 +219,13 @@ stays `not_found`. Do not invent a fourth attempt by editing the company name yo
 (cutting a word, swapping a domain you found on the web) unless you can point at a
 source for the new value, and say you did it.
 
+The cascade was checked against the live API on 9 September 2026: a lookup sent with a
+domain that was not the company's mail domain came back empty, and the same person
+sent again with the company name alone came back with a `valid` address on the real
+domain. One call would have written that row off.
+[`scripts/find-emails.py`](../../scripts/find-emails.py) runs the whole thing over a
+CSV, and section 5 is how to use it.
+
 ### 4. Read the result properly
 
 The result carries two different fields and people confuse them constantly.

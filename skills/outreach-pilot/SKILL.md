@@ -122,7 +122,7 @@ Produces `outreach/offer.md`, and the block the writing prompt will consume.
 put their logo on the same sentence. If it still reads like a category description, the
 messages will read like everyone else's and the pilot will not tell you much.
 
-**Step 3. Build the list, then cut it to exactly 100.**
+**Step 3. Source about 500, cut to about 250, enrich those.**
 Run [`outreach-leads`](../outreach-leads/SKILL.md) with a target of 150, then
 [`outreach-filter`](../outreach-filter/SKILL.md).
 Produces `outreach/leads.csv`, source column kept.

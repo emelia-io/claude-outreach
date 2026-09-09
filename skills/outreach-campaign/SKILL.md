@@ -179,6 +179,25 @@ The tree is a linked structure, not a list: it starts at a `START` node and each
 carries the next one, with `yes` and `no` branches on a condition. The five shipped
 templates in `outreach-sequence` are the reference for what a valid tree looks like.
 
+**What goes in an email step, verbatim.** Subject and body are the carrier variables,
+never the written text:
+
+```
+subject: {{email1subject}}
+body:    <p>{{email1message}}</p><p></p><p>{{signature}}</p>
+```
+
+From step 2 the opt out link is appended, as a real anchor:
+
+```
+<p></p><p><a target="_blank" rel="noopener noreferrer" href="{{unsubscribe_link}}">Se désabonner</a></p>
+```
+
+The body is HTML. Paragraphs are `<p>`, an empty line is `<p></p>`, and a `\n` renders
+as nothing, which turns the whole email into one block. Variables are double braces and
+nothing else: no Liquid, no filter, no default value, because Emelia has no fallback and
+an unresolved variable renders empty.
+
 The shapes Emelia uses:
 
 - `stepType` is one of `EMAIL`, `LINKEDIN_VISIT`, `LINKEDIN_CONNECTION`,
@@ -276,6 +295,10 @@ matches the rows you loaded. A campaign is capped at 15,000 recipients.
 | Variables resolved | count blanks per variable across the CSV | 0 blanks, or a fallback written into the copy |
 | Test email | send one from the campaign to your own address | received, read on a phone, every variable filled, links working |
 | Subject on step 1 | `GET /advanced/campaigns/{id}` | not empty |
+| Body is HTML | `GET /advanced/campaigns/{id}` | every step body contains `<p>`, and no raw `\n` |
+| Variable syntax | `GET /advanced/campaigns/{id}` | only `{{name}}`, no `{#`, no `|`, no `default:` |
+| Carrier columns | `get_list_contacts` on one row | every `emailNsubject` and `emailNmessage` the steps reference exists and is filled |
+| Greeting | one rendered sample | the message opens with a greeting, not with the first sentence |
 | Subscription | Emelia account | active, the product refuses to start a campaign without one |
 | Identities | `GET /advanced/campaigns/{id}` | at least one, none disconnected or expired |
 | Recipients | `get_campaign` | above 0, at most 15,000, and at least one contact reachable on each channel the sequence uses |

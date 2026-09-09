@@ -547,40 +547,50 @@ This whole section is about **email** steps. A LinkedIn step body is the message
 nothing else: no signature variable, no opt out link, no HTML. See "Mode A on LinkedIn"
 in section 1.
 
-The body of an email step is three blocks, in this order, separated by a blank line:
+**The reference, taken from a real running campaign.** Every step, the same shape, only
+the number changes:
 
-1. **The message.** In Mode A this is the custom variable and nothing else. In Mode B it
-   is the written text.
-2. **`{{signature}}`**, on its own line.
-3. **The opt out link**, from step 2 on, as a real link.
-
-```html
-{{message}}
-
-{{signature}}
-
-<p><a href="{{unsubscribe_link}}">Unsubscribe</a></p>
 ```
+subject: {{email1subject}}
+body:    <p>{{email1message}}</p><p></p><p>{{signature}}</p>
+```
+
+and from step 2 onwards, with the opt out:
+
+```
+body:    <p>{{email2message}}</p><p></p><p>{{signature}}</p><p></p><p><a target="_blank" rel="noopener noreferrer" href="{{unsubscribe_link}}">Se désabonner</a></p>
+```
+
+One pair of variables per step, `emailNsubject` and `emailNmessage`, matching the column
+names in your CSV. The names are yours to choose, `email_subject_2` works as well as
+`email2subject`, as long as the column and the variable agree exactly.
+
+**Four rules, each of which has already broken a real campaign:**
+
+**The body is HTML, not text.** A paragraph is `<p>...</p>`, a blank line between two
+paragraphs is `<p></p>`. A newline character does nothing: write `\n` in the body and
+the whole email renders as one run-on block. This is the most common way a well written
+sequence arrives looking careless.
+
+**Only double braces.** `{{firstName}}`. Nothing else. Not `{# firstName #}`, not
+`{{ firstName | default: "" }}`, not a Liquid tag, not a filter.
+
+**There is no fallback.** You cannot supply a default value for a variable, so do not
+write anything that pretends you can. An unresolved variable renders as **nothing**,
+silently. That is precisely why a sentence must still read correctly when the variable
+comes back empty, and why "Hi {{firstName}}," on a row with no first name ships as
+"Hi ,". Check the column is filled on every row instead of reaching for a default that
+does not exist.
+
+**The greeting lives in the message, not in the editor.** In Mode A the step body is the
+carrier variable and nothing else, so "Bonjour Marie," has to be inside the generated
+value of `emailNmessage`. A step that renders straight into the first sentence with no
+greeting reads as a machine. In Mode B, where you write the text in the editor, the
+greeting is the first paragraph of that text.
 
 In Mode A, do not paste the written message into the editor and sprinkle variables
 through it. The message lives in the contact's custom field, and the step only renders
 it. One variable, one message, no editing in the app.
-
-#### The signature
-
-`{{signature}}` renders the signature attached to the sending identity, so the same
-sequence signs correctly whichever mailbox sends it. Four things to know:
-
-- **Lowercase only.** `{{signature}}` works, `{{Signature}}` and `{{SIGNATURE}}` do not:
-  they fall through to the contact fields and render as nothing. This is the opposite of
-  the opt out variable below, which is case insensitive.
-- **Give it its own line**, with a blank line above it. The engine unwraps the paragraph
-  around it before inserting the signature block.
-- **Do not type your name above it as well.** The signature already carries the name, the
-  company and the address. Two sign offs in one email reads as a mistake.
-- **If no signature is configured on the identity, it renders as nothing**, silently. Ask
-  the user to check theirs before the launch, and make sure it names who is writing and
-  which company. An email that does not say who sent it gets marked as spam.
 
 #### The opt out link, and why it must be a link
 

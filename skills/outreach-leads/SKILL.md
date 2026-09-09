@@ -55,6 +55,33 @@ Use a different skill when:
 
 ## How to do it
 
+### 0. Source five times what you need
+
+Decide the target first, then multiply it by five before writing a single query. Wanting
+a hundred contacts to email means pulling five hundred from the source.
+
+The attrition is not a worst case, it is the normal path:
+
+| Stage | Typical survival | 500 sourced becomes |
+|---|---|---|
+| Off target rows you cut yourself | 70 to 85% | about 400 |
+| Rows carrying enough context to be usable | 80 to 90% | about 340 |
+| Email actually found by the finder | 50 to 65% | about 190 |
+| Sendable after the routing rules | 90% | about 170 |
+
+Source a hundred for a hundred and you finish with thirty, discover it after paying for
+the enrichment, and start again. The extra sourcing is cheap: counting is free, and the
+credits go on enrichment, not on rows.
+
+**Do not be stingy with credits at this stage.** Overshooting by a few dozen enrichments
+costs a few euros. Undershooting costs a rebuild of the whole run.
+
+**When you overshoot, ask rather than discard.** Finishing with 170 sendable rows for a
+target of 100 is a good problem: say so, and let the user decide between keeping the
+hundred best, running the whole set, or keeping the rest for the next wave. Never throw
+away rows that were already paid for without saying it.
+
+
 ### 0. The column contract
 
 `outreach/leads.csv` has exactly these 26 columns, in this order, always, whatever the

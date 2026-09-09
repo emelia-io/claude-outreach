@@ -70,6 +70,17 @@ is often the answer the user actually wanted.
 
 ## How to do it
 
+### 0. How many rows to enrich
+
+Enrich for the target, not for the list. The finder lands somewhere around half the
+rows, so a campaign of 100 contacts means sending **about 250 rows** to enrichment, and
+250 is the sensible default when the user asks for a first campaign.
+
+Do not trim that number to save credits. A miss is refunded, the found ones cost about
+one credit each, and running short means paying twice: once for the first pass, once for
+the rebuild. If the budget genuinely cannot take 250, say what the expected yield is at
+the number you can afford, and let the user choose with the figure in front of them.
+
 ### 1. Fix the order, and never change it
 
 The waterfall is not a single chain. After the filter it splits in two, because the

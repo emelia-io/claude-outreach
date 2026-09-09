@@ -773,13 +773,17 @@ into `stop_rules` and check them in `outreach-audit`:
 | Spam complaints | any | Stop. This is the domain, not the campaign |
 | A step producing more unsubscribes than replies | any | Cut that step |
 
-### 8. Write the file, then hand over the build sheet
+### 8. Write the file, then show what will be built
 
 Write `outreach/campaign.json`, then print the step tree as an indented list in the
-conversation, with the delays, so the user can build it in the app in one pass. Open that
-hand over with the template name, because that is the first click: "start from Email then
-LinkedIn, then make these four changes". Then say the three things that are easy to get
-wrong there: the timezone, `dailyEmailAdded`, and the condition windows.
+conversation, with the delays, so the user can read the sequence before anything is
+pushed. Name the template you started from and the changes you made to it. Then flag the
+three things that are easy to get wrong: the timezone, `dailyEmailAdded`, and the
+condition windows.
+
+`outreach-campaign` reads this file and pushes it with
+`PATCH /advanced/campaigns/{id}/steps`. The user reads the tree here, not in the
+interface, so this printout is their last look before it exists.
 
 Nothing is created in Emelia by this skill. `outreach-campaign` does that, and it asks
 before it does.

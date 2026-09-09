@@ -106,7 +106,10 @@ file. The full surface, which is all there is:
 | `POST /tools/find/email` then `GET /tools/find/email/{jobId}` | Find an email from `fullname`, `companyName` or `companyWebsite`, and `country`, which is **required** despite what some schemas say |
 | `POST /tools/find/phone` then `GET /tools/find/phone/{jobId}` | Find a mobile from `linkedinUrl` |
 | `POST /tools/verify/email` then `GET /tools/verify/email/{jobId}` | Verify one address |
-| `POST /advanced/lists/contacts` | Add contacts to a list |
+| `GET /lists/list`, `POST /lists/list` | Read the lists with their columns, create one. Returns `listId` |
+| `POST /lists/list/{listId}/contacts/batch` | Load up to 100 contacts per call, `?updateIfExists=true` to re-run safely |
+| `GET /lists/list/{listId}/rows` | Read the contacts back, paginated, `pageSize` caps at 100 |
+| `POST /advanced/lists/contacts` | Add one contact to a list, for a single row, never for a file |
 | `POST /advanced/campaign/contacts` | Add a contact straight into an email campaign, with custom fields |
 | `PATCH /advanced/contacts` | Set a custom field on a contact |
 | `POST /advanced/campaigns` | Create a campaign. Takes a `name` and nothing else |
@@ -238,13 +241,76 @@ round it up and do not quietly drop the rest.
 
 Steps 1, 4, 5 and 9 stop and wait for the user. The rest runs through.
 
-## Parallel work
+## Speed, and why it is a correctness question
 
-Use the sub-agents in `agents/` when a step fans out over many items:
-`outreach-lead-sourcer` (several sources at once), `outreach-enricher` (batches),
-`outreach-copywriter` (variants per segment), `outreach-deliverability-auditor`
-(one mailbox each), `outreach-auditor` (per campaign or per step). Anything that reads many
-things and returns one conclusion belongs in an agent.
+A run that takes two hours is not a slow run, it is a wrong one: the user stops
+watching, cannot correct you, and you finish alone. Three rules, in order of how much
+time they save.
+
+**Never wait on one row before starting the next.** The finders are asynchronous. `POST
+/tools/find/email` returns a `jobId` immediately and `GET /tools/find/email/{jobId}`
+answers when the server is done. Submit the whole file, then poll the whole file.
+Submitted serially, 250 rows take between one and three hours, because each one waits
+out the server's own search. Submitted as a wave, the same 250 come back in about the
+time the slowest single row takes, which is a minute or two.
+`scripts/find-emails.py` does exactly that and it is the reference implementation.
+The `/tools/` routes are exempt from the rate limit of the plan, so nothing is gained by
+holding back.
+
+**Move on at the number you need, not at the last row.** `--enough 120` stops the
+polling as soon as 120 addresses are in. The jobs still running are not lost: their
+`jobId` is written into the file and `GET /tools/find/email/{jobId}` collects them
+later. Building the campaign with the contacts you already have, and folding in the
+stragglers afterwards, is always faster than waiting for a complete file.
+
+**Fan out everything that divides.** This is a Claude Code plugin, and a step that
+loops over items should be several agents, not one loop. Writing 100 personalised
+sequences is ten agents of ten contacts each, not one agent of a hundred. Sourcing from
+three cities is three agents. Auditing nine mailboxes is nine. Give each agent the same
+written brief, a disjoint slice, and its own output file, then read the outputs back,
+check them against the brief yourself, and reconcile. The `agents/` directory holds the
+briefs that already exist: `outreach-lead-sourcer` (several sources at once),
+`outreach-enricher` (batches), `outreach-copywriter` (a slice of contacts each),
+`outreach-deliverability-auditor` (one mailbox each), `outreach-auditor` (per campaign
+or per step).
+
+Two things do not parallelise, and forcing them costs more than it saves: anything that
+writes the same file, and anything that spends credits on rows another agent may already
+have covered. Split the input first, then fan out.
+
+## Say what is happening, while it happens
+
+The user is in a conversation with you, not reading a log afterwards. When you fan work
+out to agents, or start something that runs for a minute, say so before it starts and
+report each result as it lands: what you launched, what came back, what it cost, what
+you are doing next. A silent stretch longer than a couple of minutes is a bug in how you
+are working, not a property of the task.
+
+The same rule applies inside Emelia, because that is where the user will look. **Create
+the campaign early and let it fill up in the open.** Create it as soon as you know the
+name, with the state in the name in parentheses, and rename it as the run advances:
+
+```
+Croitr pilote 1 (en attente des contacts)
+Croitr pilote 1 (100 contacts charges, redaction en cours)
+Croitr pilote 1 - agences com Bordeaux
+```
+
+Push the contacts as soon as they exist, before the copy is written. The batch route
+takes `?updateIfExists=true`, so pushing the same rows again later with their message
+columns updates them in place rather than duplicating them. A user who opens Emelia
+mid-run should see a campaign filling up, not an empty account.
+
+## Keep the plugin up to date
+
+This repository moves. Run `scripts/check-update.sh` at the start of a run and once a
+day inside a long one. It makes a single call to the remote and prints one line:
+`up to date`, or `behind by N commits, run: git -C <dir> pull`.
+
+When it says behind, tell the user in one sentence, with the command, and say what
+changed if you can see it. Do not pull on their behalf: it is their checkout, and a run
+in progress should not have its instructions swapped underneath it. Finish the run, then
+suggest the pull.
 
 ## Sub-skills
 

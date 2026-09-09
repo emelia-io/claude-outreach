@@ -78,10 +78,16 @@ FIND_EMAIL = "/tools/find/email"
 # Requests per minute per API key, per plan. Measured in the Emelia code, not guessed.
 PLAN_RPM = {"none": 30, "start": 100, "grow": 300, "scale": 1000}
 
-# The server polls its own sources for up to two minutes each before giving up, and a
-# cascade runs both, so a single lookup can legitimately take four minutes.
-POLL_EVERY = 3.0
-POLL_TIMEOUT = 300.0
+# The server queries its own sources for up to two minutes before giving up on a row.
+# That wait is per job and the jobs run in parallel server side, so this script submits a
+# whole wave of rows first and then polls the whole wave, instead of waiting out one row
+# before starting the next. Serial would be one row every 20 to 60 seconds; a wave of 250
+# comes back in about the time a single row takes.
+POLL_EVERY = 5.0
+POLL_TIMEOUT = 420.0
+# /tools/ routes are exempt from the per plan rate limit, so a wave can be submitted at
+# speed. The limiter stays as a safety net and 429 is still handled.
+TOOLS_RPM = 600
 
 # Column aliases, compared lowercased with punctuation stripped.
 ALIASES = {
@@ -185,41 +191,63 @@ class Api:
             return 0, {"error": str(e)}
 
 
-def lookup(api: Api, payload: dict) -> dict:
-    """One attempt: create the job, poll it, return a flat result dict."""
+def submit(api: Api, payload: dict) -> dict:
+    """Create one finder job. Returns either a job id or a terminal outcome."""
     status, body = api.call("POST", FIND_EMAIL, payload)
 
     if status == 429:
-        time.sleep(60)
+        time.sleep(20)
         status, body = api.call("POST", FIND_EMAIL, payload)
     if status == 402 or "credit" in json.dumps(body).lower():
-        return {"outcome": "no_credits", "http": status, "error": body.get("error") or body.get("message")}
+        return {"outcome": "no_credits", "http": status,
+                "error": body.get("error") or body.get("message")}
     if status == 401:
         return {"outcome": "unauthorized", "http": status}
     if status == 400:
-        return {"outcome": "rejected", "http": 400, "error": body.get("error") or body.get("message")}
+        return {"outcome": "rejected", "http": 400,
+                "error": body.get("error") or body.get("message")}
     job_id = body.get("jobId")
     if not job_id:
-        return {"outcome": "error", "http": status, "error": body.get("error") or body.get("message")}
+        return {"outcome": "error", "http": status,
+                "error": body.get("error") or body.get("message")}
+    return {"outcome": "submitted", "job_id": job_id}
 
+
+def collect(api: Api, jobs: dict, on_result, enough=None) -> None:
+    """Poll a whole wave of jobs until each one answers or the deadline passes.
+
+    `jobs` maps job_id to whatever the caller needs to route the answer back, and
+    `on_result` is called once per job with (payload, result). Jobs are polled in the
+    order they were submitted, so the oldest, most likely finished, answers first.
+    """
     deadline = time.monotonic() + POLL_TIMEOUT
-    while True:
+    while jobs:
+        if enough and enough():
+            print(f"  target reached, {len(jobs)} jobs left running server side. "
+                  f"Their jobId is in the file, collect them later.", flush=True)
+            for job_id, payload in list(jobs.items()):
+                on_result(payload, {"outcome": "pending", "job_id": job_id})
+            jobs.clear()
+            return
         time.sleep(POLL_EVERY)
-        gstatus, gbody = api.call("GET", f"{FIND_EMAIL}/{job_id}")
-        data = (gbody or {}).get("data") or {}
-        if gstatus == 429:
-            time.sleep(60)
-            continue
-        if data.get("status") and data["status"] != "running":
-            email = (data.get("email") or "").strip()
-            return {
-                "outcome": "found" if email else "not_found",
-                "job_id": job_id,
-                "email": email,
-                "qualification": data.get("qualification") or "",
-            }
+        for job_id in list(jobs):
+            gstatus, gbody = api.call("GET", f"{FIND_EMAIL}/{job_id}")
+            if gstatus == 429:
+                time.sleep(20)
+                break
+            data = (gbody or {}).get("data") or {}
+            if data.get("status") and data["status"] != "running":
+                email = (data.get("email") or "").strip()
+                on_result(jobs.pop(job_id), {
+                    "outcome": "found" if email else "not_found",
+                    "job_id": job_id,
+                    "email": email,
+                    "qualification": data.get("qualification") or "",
+                })
         if time.monotonic() > deadline:
-            return {"outcome": "pending", "job_id": job_id}
+            for job_id, payload in list(jobs.items()):
+                on_result(payload, {"outcome": "pending", "job_id": job_id})
+            jobs.clear()
 
 
 def attempts_for(row: dict, cmap: dict, default_country: str, max_attempts: int) -> list[dict]:
@@ -271,6 +299,12 @@ def main() -> int:
     p.add_argument("--limit", type=int)
     p.add_argument("--max-attempts", type=int, default=3, choices=[1, 2, 3])
     p.add_argument("--country", default="FR")
+    p.add_argument("--enough", type=int, metavar="N",
+                   help="stop polling once N addresses are found. The jobs already "
+                        "submitted keep running server side and their jobId is written "
+                        "to the file, so the stragglers are collectable later with "
+                        "--collect. Use it to start writing as soon as the campaign has "
+                        "its contacts instead of waiting out the slowest row.")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--resume", action="store_true")
     args = p.parse_args()
@@ -362,43 +396,30 @@ def main() -> int:
             for r in rows:
                 w.writerow({k: r.get(k, "") for k in out_header})
 
-    api = Api(key, rpm)
+    api = Api(key, max(rpm, TOOLS_RPM))
     started = datetime.now(timezone.utc)
     stats = {"found": 0, "not_found": 0, "error": 0, "pending": 0,
              "by_attempt": {"domain": 0, "company_name": 0, "trade_name": 0},
              "attempts_made": 0, "rescued_by_fallback": 0}
     stopped = None
+    done = 0
 
-    for n, i in enumerate(todo, 1):
-        chain, result, made = plans[i], None, []
-        for attempt in chain:
-            r = lookup(api, payload_of(attempt))
-            made.append(attempt["label"])
-            stats["attempts_made"] += 1
-            if r["outcome"] in ("no_credits", "unauthorized"):
-                stopped = r["outcome"]
-                break
-            result = dict(r, label=attempt["label"])
-            if r["outcome"] in ("found", "pending"):
-                break
-        if stopped:
-            break
-
-        rows[i]["email"] = result.get("email", "") if result else ""
-        rows[i]["email_qualification"] = result.get("qualification", "") if result else ""
-        rows[i]["email_source"] = "finder" if result and result.get("email") else ""
-        # the attempt that found the address, empty when nothing was found
-        rows[i]["email_attempt"] = result.get("label", "") if result and result.get("email") else ""
+    def record(i: int, result: dict, label: str, made: list) -> None:
+        """Write one row's verdict into the table and the counters."""
+        nonlocal done
+        outcome = result["outcome"]
+        rows[i]["email"] = result.get("email", "")
+        rows[i]["email_qualification"] = result.get("qualification", "")
+        rows[i]["email_source"] = "finder" if result.get("email") else ""
+        rows[i]["email_attempt"] = label if result.get("email") else ""
         rows[i]["email_attempts_made"] = str(len(made))
-        rows[i]["email_job_id"] = result.get("job_id", "") if result else ""
-        outcome = result["outcome"] if result else "error"
+        rows[i]["email_job_id"] = result.get("job_id", "")
         rows[i]["email_status"] = {"found": "found", "not_found": "not_found",
                                    "pending": "pending"}.get(outcome, "error")
-
         if outcome == "found":
             stats["found"] += 1
-            stats["by_attempt"][result["label"]] += 1
-            if result["label"] != "domain" and chain[0]["label"] == "domain":
+            stats["by_attempt"][label] += 1
+            if label != "domain" and plans[i][0]["label"] == "domain":
                 stats["rescued_by_fallback"] += 1
         elif outcome == "not_found":
             stats["not_found"] += 1
@@ -406,13 +427,61 @@ def main() -> int:
             stats["pending"] += 1
         else:
             stats["error"] += 1
-
-        write_out()
-        mark = result.get("email") if result and result.get("email") else outcome
-        if outcome == "error" and result and result.get("error"):
+        done += 1
+        mark = result.get("email") or outcome
+        if outcome == "error" and result.get("error"):
             mark = f"error: {result['error']}"
-        print(f"  [{n}/{len(todo)}] {chain[0]['fullname']} at {chain[0]['companyName']}"
-              f"  {'>'.join(made)} -> {mark}", flush=True)
+        print(f"  [{done}/{len(todo)}] {plans[i][0]['fullname']} at "
+              f"{plans[i][0]['companyName']}  {'>'.join(made)} -> {mark}", flush=True)
+
+    # One wave per rung of the cascade: submit every row that is still open, poll the
+    # whole wave, then send the rows that came back empty down to the next rung.
+    open_rows = list(todo)
+    made_by_row = {i: [] for i in todo}
+
+    for rung in range(args.max_attempts):
+        wave = [i for i in open_rows if len(plans[i]) > rung]
+        if not wave:
+            break
+
+        jobs, next_open = {}, []
+        print(f"\nattempt {rung + 1} ({plans[wave[0]][rung]['label']}): "
+              f"submitting {len(wave)} rows", flush=True)
+
+        for i in wave:
+            attempt = plans[i][rung]
+            r = submit(api, payload_of(attempt))
+            stats["attempts_made"] += 1
+            made_by_row[i].append(attempt["label"])
+            if r["outcome"] in ("no_credits", "unauthorized"):
+                stopped = r["outcome"]
+                break
+            if r["outcome"] == "submitted":
+                jobs[r["job_id"]] = i
+            else:
+                record(i, r, attempt["label"], made_by_row[i])
+
+        if stopped:
+            break
+
+        print(f"  {len(jobs)} jobs running, polling every {int(POLL_EVERY)}s", flush=True)
+
+        def on_result(i: int, result: dict) -> None:
+            label = plans[i][rung]["label"]
+            last_rung = rung + 1 >= min(args.max_attempts, len(plans[i]))
+            if result["outcome"] == "not_found" and not last_rung:
+                next_open.append(i)          # try the next rung rather than give up
+                return
+            record(i, result, label, made_by_row[i])
+
+        collect(api, jobs, on_result,
+                enough=(lambda: stats["found"] >= args.enough) if args.enough else None)
+        write_out()
+        if args.enough and stats["found"] >= args.enough:
+            print(f"\n{stats['found']} addresses found, target was {args.enough}. "
+                  f"Stopping here so the campaign can be built now.", flush=True)
+            break
+        open_rows = next_open
 
     write_out()
     looked_up = stats["found"] + stats["not_found"] + stats["error"] + stats["pending"]

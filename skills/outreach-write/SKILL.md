@@ -357,7 +357,7 @@ Say this when the user asks for the messages, not in a footnote afterwards.
 
 | Messages to generate | Where it runs | What to do |
 |---|---|---|
-| Up to about 200 | a normal Claude Code subscription | Generate in batches of 20 to 50 and read them as you go |
+| Up to about 200 | a normal Claude Code subscription | Fan out over parallel agents, ten contacts each |
 | 200 to about 1,000 | the subscription over several days, or an API key | Ask which the user prefers before starting |
 | 1,000 and above | an Anthropic API key, billed per message | Use Claude Sonnet, model id `claude-sonnet-5` |
 
@@ -385,6 +385,36 @@ The question to ask before any run above 200:
 > whole list and spend nothing on generation. Which one?
 
 Never start a run above 200 messages without that answer.
+
+#### Generate in parallel, never in one long loop
+
+One agent writing a hundred sequences one after another is the slowest possible way to
+do this, and it is also the worst: by message sixty it has forgotten the brief and every
+opener sounds the same. Split the contacts and fan out.
+
+1. Write the brief **once**, to a file, and pass its path to every agent. It carries the
+   offer, the segment, the language, the register, the signer's gender, the length table,
+   the four step progression and the output shape. One file means one voice, and a
+   correction to it applies to every agent you launch next.
+2. Split the contacts into slices of about ten, each in its own JSON file, each with its
+   own output file. Disjoint slices, so no two agents write the same person and no work
+   is paid for twice.
+3. Launch them **in the same message**, not one after another. Ten agents of ten finish
+   in about the time one agent takes to write ten.
+4. Tell the user what you launched before it starts, and report each slice as it lands.
+   Silence for ten minutes reads as a hang.
+5. Read the outputs back and check them yourself, against the brief: the count, the ids,
+   the lengths, the forbidden characters, the repeated openers **across** slices, which is
+   the one failure no single agent can see. Fix by re-running a slice with a sharper
+   brief, never by editing a hundred messages by hand.
+
+Tell each agent to write the messages itself and not to write a script that generates
+them. An agent that hits a wall on a long task will reach for a template loop, and a
+templated message is a Mode B message with extra steps and Mode A's bill.
+
+The same shape applies to any step that loops: sourcing several cities, auditing several
+mailboxes, enriching several batches. If it divides into independent slices, it runs as
+parallel agents.
 
 ### 2. Find the angle before you write a word
 

@@ -268,16 +268,16 @@ six weeks later you can tell a deliberate cut from a mistake.
   "steps": {
     "_id": "START", "stepType": "START", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
     "next": {
-      "_id": "e1", "stepType": "EMAIL", "identities": ["niels@emelia.io"], "delay": {"amount": 0, "unit": "DAYS"},
+      "_id": "e1", "stepType": "EMAIL", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
       "versions": [{"_id": "e1-v", "subject": "status page vs reality", "message": "sequence.md step 1, then {{signature}}, no opt out link", "disabled": false}],
       "next": {
-        "_id": "e2", "stepType": "EMAIL", "identities": ["niels@emelia.io"], "delay": {"amount": 3, "unit": "DAYS"},
+        "_id": "e2", "stepType": "EMAIL", "identities": [], "delay": {"amount": 3, "unit": "DAYS"},
         "versions": [{"_id": "e2-v", "subject": "", "message": "sequence.md step 2, then {{signature}}, then the opt out anchor", "disabled": false}],
         "next": {
-          "_id": "e3", "stepType": "EMAIL", "identities": ["niels@emelia.io"], "delay": {"amount": 5, "unit": "DAYS"},
+          "_id": "e3", "stepType": "EMAIL", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
           "versions": [{"_id": "e3-v", "subject": "who gets paged", "message": "sequence.md step 3, then {{signature}}, then the opt out anchor", "disabled": false}],
           "next": {
-            "_id": "e4", "stepType": "EMAIL", "identities": ["niels@emelia.io"], "delay": {"amount": 10, "unit": "DAYS"},
+            "_id": "e4", "stepType": "EMAIL", "identities": [], "delay": {"amount": 10, "unit": "DAYS"},
             "versions": [{"_id": "e4-v", "subject": "", "message": "sequence.md step 4, the break up, then {{signature}}, then the opt out anchor", "disabled": false}]
           }
         }
@@ -297,18 +297,18 @@ six weeks later you can tell a deliberate cut from a mistake.
   "steps": {
     "_id": "START", "stepType": "START", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
     "next": {
-      "_id": "invite", "stepType": "CONNECTION", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 0, "unit": "DAYS"},
+      "_id": "invite", "stepType": "CONNECTION", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
       "versions": [{"_id": "invite-v", "message": ""}],
       "next": {
-        "_id": "dm1", "stepType": "MESSAGE", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 1, "unit": "DAYS"},
+        "_id": "dm1", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
         "versions": [{"_id": "dm1-v", "message": "sequence.md LinkedIn message 1"}],
         "next": {
-          "_id": "dm2", "stepType": "MESSAGE", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 3, "unit": "DAYS"},
+          "_id": "dm2", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 3, "unit": "DAYS"},
           "versions": [{"_id": "dm2-v", "message": "sequence.md LinkedIn message 2"}],
           "next": {
-            "_id": "like", "stepType": "LIKE", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 7, "unit": "DAYS"},
+            "_id": "like", "stepType": "LIKE", "identities": [], "delay": {"amount": 7, "unit": "DAYS"},
             "next": {
-              "_id": "dm3", "stepType": "MESSAGE", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 4, "unit": "HOURS"},
+              "_id": "dm3", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 4, "unit": "HOURS"},
               "versions": [{"_id": "dm3-v", "message": "sequence.md LinkedIn break up"}]
             }
           }
@@ -329,30 +329,30 @@ six weeks later you can tell a deliberate cut from a mistake.
   "steps": {
     "_id": "START", "stepType": "START", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
     "next": {
-      "_id": "invite", "stepType": "CONNECTION", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 0, "unit": "DAYS"},
+      "_id": "invite", "stepType": "CONNECTION", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
       "versions": [{"_id": "invite-v", "message": ""}],
       "next": {
         "_id": "accepted", "stepType": "CONDITION", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
         "conditions": {"field": "ACCEPTED", "operator": "EQUAL", "value": "true"},
         "yes": {
-          "_id": "dm1", "stepType": "MESSAGE", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 2, "unit": "HOURS"},
+          "_id": "dm1", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 2, "unit": "HOURS"},
           "versions": [{"_id": "dm1-v", "message": "sequence.md LinkedIn message 1"}],
           "next": {
-            "_id": "dm2", "stepType": "MESSAGE", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 5, "unit": "DAYS"},
+            "_id": "dm2", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
             "versions": [{"_id": "dm2-v", "message": "sequence.md LinkedIn message 2"}],
             "next": {
-              "_id": "dm3", "stepType": "MESSAGE", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 10, "unit": "DAYS"},
+              "_id": "dm3", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 10, "unit": "DAYS"},
               "versions": [{"_id": "dm3-v", "message": "sequence.md LinkedIn break up"}]
             }
           }
         },
         "no": {
-          "_id": "inmail", "stepType": "INMAIL", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 1, "unit": "DAYS"},
+          "_id": "inmail", "stepType": "INMAIL", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
           "versions": [{"_id": "inmail-v", "subject": "who owns response monitoring", "message": "sequence.md InMail body"}],
           "next": {
-            "_id": "like", "stepType": "LIKE", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 2, "unit": "DAYS"},
+            "_id": "like", "stepType": "LIKE", "identities": [], "delay": {"amount": 2, "unit": "DAYS"},
             "next": {
-              "_id": "dm4", "stepType": "MESSAGE", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 5, "unit": "DAYS"},
+              "_id": "dm4", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
               "versions": [{"_id": "dm4-v", "message": "sequence.md LinkedIn last message"}]
             }
           }
@@ -376,33 +376,33 @@ six weeks later you can tell a deliberate cut from a mistake.
   "steps": {
     "_id": "START", "stepType": "START", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
     "next": {
-      "_id": "invite", "stepType": "CONNECTION", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 0, "unit": "DAYS"},
+      "_id": "invite", "stepType": "CONNECTION", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
       "versions": [{"_id": "invite-v", "message": ""}],
       "next": {
         "_id": "accepted", "stepType": "CONDITION", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
         "conditions": {"field": "ACCEPTED", "operator": "EQUAL", "value": "true"},
         "yes": {
-          "_id": "dm1", "stepType": "MESSAGE", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 1, "unit": "HOURS"},
+          "_id": "dm1", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 1, "unit": "HOURS"},
           "versions": [{"_id": "dm1-v", "message": "sequence.md LinkedIn message 1"}],
           "next": {
-            "_id": "dm2", "stepType": "MESSAGE", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 5, "unit": "DAYS"},
+            "_id": "dm2", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
             "versions": [{"_id": "dm2-v", "message": "sequence.md LinkedIn message 2"}],
             "next": {
-              "_id": "like", "stepType": "LIKE", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 8, "unit": "DAYS"},
+              "_id": "like", "stepType": "LIKE", "identities": [], "delay": {"amount": 8, "unit": "DAYS"},
               "next": {
-                "_id": "dm3", "stepType": "MESSAGE", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 4, "unit": "HOURS"},
+                "_id": "dm3", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 4, "unit": "HOURS"},
                 "versions": [{"_id": "dm3-v", "message": "sequence.md LinkedIn message 3"}],
                 "next": {
                   "_id": "has-email-yes", "stepType": "CONDITION", "identities": [], "delay": {"amount": 3, "unit": "DAYS"},
                   "conditions": {"field": "$email", "operator": "IS_NOT_EMPTY", "value": ""},
                   "yes": {
-                    "_id": "e1", "stepType": "EMAIL", "identities": ["niels@emelia.io"], "delay": {"amount": 1, "unit": "DAYS"},
+                    "_id": "e1", "stepType": "EMAIL", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
                     "versions": [{"_id": "e1-v", "subject": "status page vs reality", "message": "sequence.md step 1, then {{signature}}, no opt out link", "disabled": false}],
                     "next": {
-                      "_id": "e2", "stepType": "EMAIL", "identities": ["niels@emelia.io"], "delay": {"amount": 5, "unit": "DAYS"},
+                      "_id": "e2", "stepType": "EMAIL", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
                       "versions": [{"_id": "e2-v", "subject": "", "message": "sequence.md step 2, then {{signature}}, then the opt out anchor", "disabled": false}],
                       "next": {
-                        "_id": "e3", "stepType": "EMAIL", "identities": ["niels@emelia.io"], "delay": {"amount": 20, "unit": "DAYS"},
+                        "_id": "e3", "stepType": "EMAIL", "identities": [], "delay": {"amount": 20, "unit": "DAYS"},
                         "versions": [{"_id": "e3-v", "subject": "", "message": "sequence.md step 3, then {{signature}}, then the opt out anchor", "disabled": false}],
                         "next": {"_id": "end1", "stepType": "END_OF_CAMPAIGN", "identities": [], "delay": {"amount": 1, "unit": "DAYS"}}
                       }
@@ -418,13 +418,13 @@ six weeks later you can tell a deliberate cut from a mistake.
           "_id": "has-email-no", "stepType": "CONDITION", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
           "conditions": {"field": "$email", "operator": "IS_NOT_EMPTY", "value": ""},
           "yes": {
-            "_id": "e4", "stepType": "EMAIL", "identities": ["niels@emelia.io"], "delay": {"amount": 1, "unit": "DAYS"},
+            "_id": "e4", "stepType": "EMAIL", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
             "versions": [{"_id": "e4-v", "subject": "status page vs reality", "message": "sequence.md step 1, then {{signature}}, no opt out link", "disabled": false}],
             "next": {
-              "_id": "e5", "stepType": "EMAIL", "identities": ["niels@emelia.io"], "delay": {"amount": 5, "unit": "DAYS"},
+              "_id": "e5", "stepType": "EMAIL", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
               "versions": [{"_id": "e5-v", "subject": "", "message": "sequence.md step 2, then {{signature}}, then the opt out anchor", "disabled": false}],
               "next": {
-                "_id": "e6", "stepType": "EMAIL", "identities": ["niels@emelia.io"], "delay": {"amount": 10, "unit": "DAYS"},
+                "_id": "e6", "stepType": "EMAIL", "identities": [], "delay": {"amount": 10, "unit": "DAYS"},
                 "versions": [{"_id": "e6-v", "subject": "who gets paged", "message": "sequence.md step 3, then {{signature}}, then the opt out anchor", "disabled": false}],
                 "next": {"_id": "end3", "stepType": "END_OF_CAMPAIGN", "identities": [], "delay": {"amount": 1, "unit": "DAYS"}}
               }
@@ -452,7 +452,7 @@ The InMail of the stock template sat where `end4` is. Keep it instead of the
   "steps": {
     "_id": "START", "stepType": "START", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
     "next": {
-      "_id": "e1", "stepType": "EMAIL", "identities": ["niels@emelia.io"], "delay": {"amount": 0, "unit": "DAYS"},
+      "_id": "e1", "stepType": "EMAIL", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
       "versions": [{"_id": "e1-v", "subject": "status page vs reality", "message": "sequence.md step 1, then {{signature}}, no opt out link", "disabled": false}],
       "next": {
         "_id": "bounced", "stepType": "CONDITION", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
@@ -461,36 +461,36 @@ The InMail of the stock template sat where `end4` is. Keep it instead of the
           "_id": "has-li", "stepType": "CONDITION", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
           "conditions": {"field": "$linkedinUrlProfile", "operator": "IS_NOT_EMPTY", "value": ""},
           "yes": {
-            "_id": "invite1", "stepType": "CONNECTION", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 1, "unit": "DAYS"},
+            "_id": "invite1", "stepType": "CONNECTION", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
             "versions": [{"_id": "invite1-v", "message": ""}],
             "next": {
-              "_id": "dm1", "stepType": "MESSAGE", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 1, "unit": "DAYS"},
+              "_id": "dm1", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
               "versions": [{"_id": "dm1-v", "message": "sequence.md LinkedIn message 1"}]
             }
           },
           "no": {"_id": "end1", "stepType": "END_OF_CAMPAIGN", "identities": [], "delay": {"amount": 0, "unit": "DAYS"}}
         },
         "no": {
-          "_id": "e2", "stepType": "EMAIL", "identities": ["niels@emelia.io"], "delay": {"amount": 1, "unit": "DAYS"},
+          "_id": "e2", "stepType": "EMAIL", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
           "versions": [{"_id": "e2-v", "subject": "", "message": "sequence.md step 2, then {{signature}}, then the opt out anchor", "disabled": false}],
           "next": {
-            "_id": "e3", "stepType": "EMAIL", "identities": ["niels@emelia.io"], "delay": {"amount": 5, "unit": "DAYS"},
+            "_id": "e3", "stepType": "EMAIL", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
             "versions": [{"_id": "e3-v", "subject": "who gets paged", "message": "sequence.md step 3, then {{signature}}, then the opt out anchor", "disabled": false}],
             "next": {
               "_id": "no-li", "stepType": "CONDITION", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
               "conditions": {"field": "$linkedinUrlProfile", "operator": "IS_EMPTY", "value": ""},
               "yes": {
-                "_id": "e4", "stepType": "EMAIL", "identities": ["niels@emelia.io"], "delay": {"amount": 1, "unit": "DAYS"},
+                "_id": "e4", "stepType": "EMAIL", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
                 "versions": [{"_id": "e4-v", "subject": "", "message": "sequence.md step 4, the break up, then {{signature}}, then the opt out anchor", "disabled": false}]
               },
               "no": {
-                "_id": "invite2", "stepType": "CONNECTION", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 2, "unit": "DAYS"},
+                "_id": "invite2", "stepType": "CONNECTION", "identities": [], "delay": {"amount": 2, "unit": "DAYS"},
                 "versions": [{"_id": "invite2-v", "message": ""}],
                 "next": {
-                  "_id": "dm2", "stepType": "MESSAGE", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 1, "unit": "DAYS"},
+                  "_id": "dm2", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
                   "versions": [{"_id": "dm2-v", "message": "sequence.md LinkedIn message 1"}],
                   "next": {
-                    "_id": "dm3", "stepType": "MESSAGE", "identities": ["linkedin:niels-mathieu"], "delay": {"amount": 5, "unit": "DAYS"},
+                    "_id": "dm3", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
                     "versions": [{"_id": "dm3-v", "message": "sequence.md LinkedIn message 2"}]
                   }
                 }
@@ -528,11 +528,26 @@ These are Emelia's real step types. Use these exact values in `campaign.json`.
 | `CONDITION` | none | `conditions` plus `yes` and `no` | The branch, see below |
 | `API_CALL` | none | a URL | Fires a webhook, use it to write into your CRM |
 | `END_OF_CAMPAIGN` | none | nothing | Ends the sequence for this contact |
-| `WAIT` | none | nothing | A pure delay. Rarely needed, every step already carries its own `delay` |
 
 Every step carries `_id`, `stepType`, `identities`, `delay` and a link to what comes
 next. The tree is chained through `next`, and a `CONDITION` chains through `yes` and
 `no` instead.
+
+**`identities` on a step is always `[]`.** It is a leftover field in the schema and the
+scheduler never reads it. Who sends is decided at campaign level: Emelia keeps only the
+identities that can do that channel, a mailbox for an `EMAIL` step and a LinkedIn account
+for a LinkedIn step, and among those it picks the least used, so the volume spreads on its
+own. Once a contact has been touched, it stays with the identity that touched it, which is
+what keeps the follow ups in the same thread and the LinkedIn messages under the same
+account. Writing an address or an account name in a step's `identities` does nothing at
+all, and reads as if it worked.
+
+**`_id` is a plain string and the server fills in the blanks.** Send a step or a version
+without one and Emelia generates it on save, for the whole tree including the branches.
+Send your own and it keeps yours. On a campaign that has already run, read the tree first
+and **keep the ids you are not changing**: every activity, every statistic and every
+contact's position in the sequence hangs off those ids, and regenerating them restarts
+people who were already deep in the sequence.
 
 The manual call task is worth its own line. A `TASK` step parks the contact and shows
 up in the Emelia app as a pending task with the name you gave it. When the MCP server
@@ -813,7 +828,7 @@ repository's, and carry the decisions the platform does not store.
   "goal": { "metric": "replies", "target_rate": 0.05, "contacts": 1000 },
   "copy_mode": "B",
   "opt_out": { "placement": "from_step_2", "wording": "Unsubscribe from these emails" },
-  "identities": ["niels@emelia.io", "linkedin:niels-mathieu"],
+  "identities": [],
   "recipients": {
     "list_name": "FR SaaS CTOs Q4",
     "lists": [],
@@ -841,7 +856,7 @@ repository's, and carry the decisions the platform does not store.
     "next": {
       "_id": "s1-email",
       "stepType": "EMAIL",
-      "identities": ["niels@emelia.io"],
+      "identities": [],
       "delay": { "amount": 0, "unit": "DAYS" },
       "versions": [
         { "_id": "v-a", "subject": "status page vs reality", "message": "sequence.md step 1, variant A, ends with {{signature}}, no opt out link", "disabled": false },
@@ -850,12 +865,12 @@ repository's, and carry the decisions the platform does not store.
       "next": {
         "_id": "s2-visit",
         "stepType": "VISIT",
-        "identities": ["linkedin:niels-mathieu"],
+        "identities": [],
         "delay": { "amount": 1, "unit": "DAYS" },
         "next": {
           "_id": "s3-invite",
           "stepType": "CONNECTION",
-          "identities": ["linkedin:niels-mathieu"],
+          "identities": [],
           "delay": { "amount": 1, "unit": "DAYS" },
           "versions": [{ "_id": "v-invite", "message": "" }],
           "next": {
@@ -867,20 +882,20 @@ repository's, and carry the decisions the platform does not store.
             "yes": {
               "_id": "s5-dm",
               "stepType": "MESSAGE",
-              "identities": ["linkedin:niels-mathieu"],
+              "identities": [],
               "delay": { "amount": 1, "unit": "DAYS" },
               "versions": [{ "_id": "v-dm", "message": "sequence.md step 2, LinkedIn wording" }]
             },
             "no": {
               "_id": "s6-email2",
               "stepType": "EMAIL",
-              "identities": ["niels@emelia.io"],
+              "identities": [],
               "delay": { "amount": 3, "unit": "DAYS" },
               "versions": [{ "_id": "v-s2", "subject": "", "message": "sequence.md step 2, then {{signature}}, then the opt out anchor" }],
               "next": {
                 "_id": "s7-email3",
                 "stepType": "EMAIL",
-                "identities": ["niels@emelia.io"],
+                "identities": [],
                 "delay": { "amount": 5, "unit": "DAYS" },
                 "versions": [{ "_id": "v-s3", "subject": "who gets paged", "message": "sequence.md step 3, then {{signature}}, then the opt out anchor" }],
                 "next": {
@@ -899,7 +914,7 @@ repository's, and carry the decisions the platform does not store.
                   "no": {
                     "_id": "s10-breakup",
                     "stepType": "EMAIL",
-                    "identities": ["niels@emelia.io"],
+                    "identities": [],
                     "delay": { "amount": 7, "unit": "DAYS" },
                     "versions": [{ "_id": "v-s4", "subject": "", "message": "sequence.md step 4, then {{signature}}, then the opt out anchor" }],
                     "next": {

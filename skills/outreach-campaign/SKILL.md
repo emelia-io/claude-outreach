@@ -61,42 +61,52 @@ number into the cadence in section 6 rather than the one the user asked for.
 Contacts do not live in a campaign. They live in a list, and a list is attached to one or
 more campaigns. Get this right and the rest of the product makes sense.
 
-With MCP:
+Read the existing lists first, then create one if you need it:
 
-- `list_lists` with `{ search: "<name>" }` to see whether the list already exists. It
-  returns each list with its id and its counters (`leads`, `emails`, `phones`).
-- `create_list` with `{ name: "Q4 SaaS founders" }` when it does not. Keep the campaign
-  name and the list name identical, it saves an hour later.
-- `get_list` with `{ listId }` to read the counters back.
+```bash
+curl -s https://api.emelia.io/lists/list -H "Authorization: $EMELIA_API_KEY"
 
-Without MCP there is no documented endpoint that creates a list. Ask the user to create
-it in the app under Lists, then copy the list id out of the URL and paste it back.
+curl -s -X POST https://api.emelia.io/lists/list \
+  -H "Authorization: $EMELIA_API_KEY" -H "Content-Type: application/json" \
+  -d '{"name":"Q4 SaaS founders"}'
+```
+
+The create returns `{"success": true, "listId": "...", "name": "..."}`. Keep the campaign
+name and the list name identical, it saves an hour later. That `listId` is the same id
+the campaign routes take, there is no import step between the two.
+
+**Read the columns of the lists you did not build.** Every list in the `GET` above carries
+a `columnPreferences` array, and that array is the list of variables the copy can use. A
+key that starts with `custom` is a custom variable: strip that prefix and lowercase the
+next letter to get the name the message uses, so `customEmail1subject` is
+`{{email1subject}}`. A list that already carries `customEmail1subject`,
+`customEmail1message` and their followers has been written for a previous campaign, and
+those columns are the carriers to reuse. Writing new ones next to them means the campaign
+sends the old copy or the new one depending on which name the steps reference, and a wrong
+name renders empty with no error. Read the columns, then name the carriers to match.
 
 Never reuse a list that already feeds another running campaign unless that is what the
 user asked for: every contact in it would enter the new campaign too.
 
 ### 2. Load the contacts in bulk
 
-With MCP, `add_contacts_to_list_bulk`:
+One call carries up to 100 contacts:
 
-```json
-{
-  "listId": "65f1a2b3c4d5e6f7a8b9c0d1",
-  "updateIfExists": true,
-  "contacts": [
-    {
-      "firstName": "Claire",
-      "lastName": "Fontaine",
-      "email": "claire.fontaine@nexora.fr",
-      "companyName": "Nexora",
-      "linkedinUrlProfile": "https://www.linkedin.com/in/clairefontaine",
-      "icebreaker": "your migration to Postgres 16 last month"
-    }
-  ]
-}
+```bash
+curl -s -X POST "https://api.emelia.io/lists/list/<listId>/contacts/batch?updateIfExists=true" \
+  -H "Authorization: $EMELIA_API_KEY" -H "Content-Type: application/json" \
+  -d '{"contacts":[
+    {"firstName":"Claire","lastName":"Fontaine","email":"claire.fontaine@nexora.fr",
+     "companyName":"Nexora","companyDomain":"nexora.fr",
+     "linkedinUrlProfile":"https://www.linkedin.com/in/clairefontaine",
+     "icebreaker":"your migration to Postgres 16 last month"}
+  ]}'
 ```
 
-- **100 contacts per call, maximum.** Split the CSV into chunks of 100.
+- **100 contacts per call, maximum**, and **1 MB per request body**. Split the CSV into
+  chunks of 100, and clip long text fields to about 4,000 characters before sending. A
+  hundred rows each carrying a full LinkedIn bio crosses the megabyte, and the refusal
+  fails the whole batch, not the offending row.
 - The payload is a flat object. `firstName`, `lastName`, `email`, `phone`,
   `linkedinUrlProfile`, `companyName`, `websiteUrl` are recognised fields. **Any other
   key creates a custom variable automatically**, which is how `icebreaker` above becomes
@@ -104,18 +114,26 @@ With MCP, `add_contacts_to_list_bulk`:
 - `updateIfExists: true` turns a duplicate into an update. Without it, a contact already
   in the list is left as it is and reported as a duplicate, not re-created.
 - The response reports `created`, `duplicates`, `updated` and `failed` counts plus a per
-  row result. **Read the failed rows and report them.** Never say "1,180 contacts loaded"
-  when 41 rows failed on a malformed address.
+  row result, indexed on the position in the array you sent, so each result maps back to
+  its row. It also returns `createdCustomVariables`, where `technicalName` is the name to
+  put in the copy. **Read the failed rows and report them.** Never say "1,180 contacts
+  loaded" when 41 rows failed on a malformed address.
+- **The LinkedIn field is `linkedinUrlProfile`.** Not `linkedinUrl`, not `linkedin`. A
+  wrong name raises no error: it silently becomes a custom variable, and every LinkedIn
+  branch of the campaign then finds an empty profile and never fires.
+- **An unknown key is matched against the standard field names first, in several
+  languages, before it becomes a custom variable.** `"Secteur"` lands in the company
+  industry, `"Prénom"` in `firstName`, `"Société"` in `companyName`. If you want a real
+  custom variable, give it a name that resembles no standard field.
+- Reading back is not symmetric with writing: you send a flat object, and
+  `GET /lists/list/<listId>/rows?page=1&pageSize=50` returns the company nested under
+  `company` and the custom variables in a `customFields` array. `pageSize` caps at 100.
 
-Without MCP, the documented endpoint takes one contact per call:
-
-```bash
-curl -s -X POST https://api.emelia.io/advanced/lists/contacts \
-  -H "Authorization: $EMELIA_API_KEY" -H "Content-Type: application/json" \
-  -d '{"id":"65f1a2b3c4d5e6f7a8b9c0d1","contact":{"firstName":"Claire","email":"claire.fontaine@nexora.fr","companyName":"Nexora"}}'
-```
-
-Three traps on this endpoint, all of which fail a row rather than the batch:
+There is also a single contact route, `POST /advanced/lists/contacts` with
+`{"id":"<listId>","contact":{...}}`. Use it to add one row to a list that already feeds a
+running campaign, never to load a file: at one call per contact it burns the rate limit of
+the plan for nothing. Three traps on that one, all of which fail a row rather than the
+batch:
 
 1. The contact needs **either** an email **or** a LinkedIn profile URL. The published
    schema lists both as required; the server accepts one. Sending neither fails.
@@ -200,8 +218,10 @@ an unresolved variable renders empty.
 
 The shapes Emelia uses:
 
-- `stepType` is one of `EMAIL`, `LINKEDIN_VISIT`, `LINKEDIN_CONNECTION`,
-  `LINKEDIN_MESSAGE`, `CONDITION`, `TASK`, `WAIT`.
+- `stepType` is one of `START`, `EMAIL`, `CONNECTION`, `MESSAGE`, `INMAIL`, `VISIT`,
+  `LIKE`, `FOLLOW`, `AUDIO`, `TASK`, `API_CALL`, `CONDITION`, `END_OF_CAMPAIGN`. The
+  LinkedIn ones carry no `LINKEDIN_` prefix, and there is no `WAIT` step: waiting is the
+  `delay` of the next step.
 - `delay` is `{ "amount": 3, "unit": "DAYS" }`, and `unit` is `DAYS`, `HOURS` or
   `MINUTES`. The delay is counted from the previous step, not from the start.
 - A message step carries `versions`, one per A/B variant, each with `subject`, `message`
@@ -363,7 +383,7 @@ read.
       "versions": [{ "subject": "{{companyName}} + Postgres 16", "message": "Hi {{firstName}}, ..." }] },
     { "stepType": "EMAIL", "delay": { "amount": 3, "unit": "DAYS" },
       "versions": [{ "subject": "", "message": "Following up, {{firstName}}. ... {{unsubscribe_link}}" }] },
-    { "stepType": "LINKEDIN_VISIT", "delay": { "amount": 1, "unit": "DAYS" }, "versions": [] }
+    { "stepType": "VISIT", "delay": { "amount": 1, "unit": "DAYS" }, "versions": [] }
   ],
   "preflight": {
     "deliverability": "READY WITH LIMITS",

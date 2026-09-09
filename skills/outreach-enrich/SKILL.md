@@ -418,17 +418,22 @@ the routing exists. Push contacts with their fields into the list attached to th
 campaign, which is how a contact enters a running campaign:
 
 ```bash
-curl -s -X POST https://api.emelia.io/advanced/lists/contacts \
+curl -s -X POST "https://api.emelia.io/lists/list/<listId>/contacts/batch?updateIfExists=true" \
   -H "Authorization: $EMELIA_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"id":"<listId>","contact":{"email":"marie@emelia.io","firstName":"Marie",
+  -d '{"contacts":[{"email":"marie@emelia.io","firstName":"Marie",
        "lastName":"Dupont","linkedinUrlProfile":"https://www.linkedin.com/in/marie-dupont-1a2b3c",
-       "company":"Emelia","icebreaker":"your post on outbound benchmarks"}}'
+       "companyName":"Emelia","icebreaker":"your post on outbound benchmarks"}]}'
 ```
 
+A hundred contacts per call, 1 MB per body, so chunk the file by 100 and clip long text
+to about 4,000 characters before sending. `updateIfExists=true` turns a row that is
+already there into an update instead of a duplicate, which is what makes a re-run safe.
+
 Any key that is not a known contact field becomes a custom variable, so `icebreaker`
-above is usable as a variable in the sequence. To set one field on a contact already
-in a campaign:
+above is usable as a variable in the sequence. The response returns it under
+`createdCustomVariables`, and the `technicalName` there, not your column header, is what
+the copy must spell. To set one field on a contact already in a campaign:
 
 ```bash
 curl -s -X PATCH https://api.emelia.io/advanced/contacts \
@@ -438,15 +443,11 @@ curl -s -X PATCH https://api.emelia.io/advanced/contacts \
        "fieldName":"icebreaker","fieldValue":"your post on outbound benchmarks"}'
 ```
 
-With the MCP server, `add_contacts_to_list_bulk` takes up to 100 flat contacts per
-call and reports created, duplicate, updated and failed per row, with `updateIfExists`
-to re-run without creating duplicates.
-
-One published schema to watch: `POST /advanced/lists/contacts` lists both
-`linkedinUrlProfile` and `email` as required on the contact. Send both when you have
-them. If a row with an address but no profile URL is refused for that reason, push it
-with the MCP bulk tool instead, which takes a flat contact and does not impose the
-pair, and say which route you used.
+The single contact route, `POST /advanced/lists/contacts` with
+`{"id":"<listId>","contact":{...}}`, exists for adding one person to a list that already
+feeds a running campaign. Its published schema lists both `linkedinUrlProfile` and `email`
+as required; the server accepts one of the two. Do not use it to load a file, one call per
+row spends the whole rate limit of the plan for nothing.
 
 Push only the rows of the destination you are working on. The list you feed here is
 the email list from step 7, not `leads.csv`.

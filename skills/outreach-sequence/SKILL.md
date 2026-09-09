@@ -518,9 +518,9 @@ These are Emelia's real step types. Use these exact values in `campaign.json`.
 | `START` | none | nothing | The entry point, always the root, `delay` 0 |
 | `EMAIL` | email | an email identity, `versions[].subject` and `versions[].message` | `message` is the whole body, assembled as in section 4. Leave the subject empty to stay in the thread: Emelia reuses the last subject, prefixes it with `Re: `, and quotes the history underneath |
 | `VISIT` | LinkedIn | a LinkedIn identity | A profile view. Costs nothing, notifies the prospect, warms an invitation |
-| `CONNECTION` | LinkedIn | a LinkedIn identity | The invitation. `versions[].message` is the note, and an empty note usually gets accepted more often than a pitched one |
-| `MESSAGE` | LinkedIn | an accepted connection | The direct message. Useless before an acceptance |
-| `INMAIL` | LinkedIn | InMail credits on the account | Paid, use it on the rows the invitation did not reach |
+| `CONNECTION` | LinkedIn | a LinkedIn identity | The invitation. `versions[0].message` is the note, capped at 300 characters, and an empty note usually gets accepted more often than a pitched one |
+| `MESSAGE` | LinkedIn | an accepted connection | The direct message. Useless before an acceptance, and it waits for one on its own when it follows a `CONNECTION` |
+| `INMAIL` | LinkedIn | InMail credits on the account | Paid, use it on the rows the invitation did not reach. One version carrying `subject` and `message` |
 | `LIKE`, `FOLLOW` | LinkedIn | a LinkedIn identity | Light touches, low value on their own, fine as a warm up |
 | `AUDIO` | LinkedIn | a LinkedIn identity | A voice note. High reply rate, does not scale, keep it for a short list |
 | `TASK` | human | nothing | The manual step, and this is the call step. Its name is `versions[0].subject` |
@@ -531,6 +531,21 @@ These are Emelia's real step types. Use these exact values in `campaign.json`.
 Every step carries `_id`, `stepType`, `identities`, `delay` and a link to what comes
 next. The tree is chained through `next`, and a `CONDITION` chains through `yes` and
 `no` instead.
+
+**The email body is HTML, every LinkedIn body is plain text.** An `EMAIL` version's
+`message` is light HTML: `<p>` paragraphs, `<p></p>` for a blank line. A `MESSAGE`,
+`CONNECTION` or `INMAIL` version's `message` is plain text, where a line break is a real
+`\n` and a `<p>` would be shown to the prospect as the characters `<p>`.
+
+**Attachments** hang off a version as `attachments: [{name, url}]`, uploaded first with
+`POST /advanced/attachments`. On LinkedIn each one also carries `mediaType`, which is
+`MEDIA` or `ATTACHMENT` for a file or an image and `AUDIO` for a voice note, uploaded
+with `POST /advanced/linkedin/audio` and carrying a `duration` in seconds. On email,
+prefer a link: an attachment costs deliverability on a first touch.
+
+**`disabled: true` on a version** keeps it in the campaign and takes it out of the A/B
+rotation. That is how you retire the losing variant without deleting the history that
+proved it lost.
 
 **`identities` on a step is always `[]`.** It is a leftover field in the schema and the
 scheduler never reads it. Who sends is decided at campaign level: Emelia keeps only the
@@ -618,6 +633,11 @@ generous guess.
 
 Two more mechanical facts: a `delay.amount` of zero or less is treated as one unit, and
 a `TASK_COMPLETED` condition is forced to a 30 day window whatever you write.
+
+**A condition on an event the campaign does not track is never true.** `OPENED` needs
+`trackOpens` on, `CLICKED` needs `trackLinks` on. With the flag off the event is never
+recorded, so the condition waits out its window and sends every contact down the `no`
+branch. It fails silently, and it looks like nobody opened anything.
 
 **Do not branch on `OPENED`.** Apple Mail Privacy Protection pre-fetches images, so a
 recorded open does not mean a human read anything, and a contact who never saw your
@@ -726,14 +746,20 @@ Schedule fields and their defaults in Emelia, so you know what you are changing:
 | `timeZone` | `Europe/Brussels` | Set it to the recipients' timezone, not yours |
 | `days` | `[0,1,2,3,4]` where 0 is Monday | Keep Monday to Friday |
 | `start`, `end` | `08:00` and `17:00` | Match a working day in the recipients' timezone |
-| `dailyEmailAdded` | 20 | New contacts entering the email track each day. This is the ramp dial |
-| `dailyEmailLimit` | 500 | All emails sent per day, follow-ups included. Set it from what the mailboxes can carry, which `outreach-deliverability` decides |
-| `dailyLinkedinAdded` | 20 | New contacts entering the LinkedIn track each day |
-| `trackOpens` | true | Turn it off unless you need it: it adds a pixel to a cold email and the number it produces cannot be trusted |
-| `trackLinks` | true | Leave on if you need click data, and accept that your links become redirects |
+| `dailyEmailAdded` | 35, range 1 to 500 | New contacts entering the email track each day. This is the ramp dial |
+| `dailyEmailLimit` | 100, range 1 to 500 | All emails sent per day, follow-ups included. Set it from what the mailboxes can carry, which `outreach-deliverability` decides. Must stay at or above `dailyEmailAdded`, or there is no room left for the follow-ups and they never go out |
+| `dailyLinkedinAdded` | 20 | New contacts entering the LinkedIn track each day. Capped at 40 when the sequence contains a `CONNECTION`, 80 without |
+| `trackOpens` | `false` | Leave it off: it adds a pixel to a cold email and the number it produces cannot be trusted. Turning it on is the **prerequisite for an `OPENED` condition**, which is a reason not to build one |
+| `trackLinks` | `false` | Turn it on only if you need click data, and accept that your links become redirects. It is the **prerequisite for a `CLICKED` condition**: without it the condition can never be true and every contact takes the `no` branch |
+| `blacklistUnsub` | `false` | Turn it on. An unsubscribe then blacklists the address account wide, not just for this campaign |
 | `excludeAlreadyMessaged` | off | Turn it on whenever the list overlaps a previous campaign |
-| `ignoreAutoReplies` | false | Turn it on, otherwise every out of office counts as a reply and stops the contact |
+| `ignoreAutoReplies` | `false` | Turn it on, otherwise every out of office counts as a reply and stops the contact |
+| `alwaysOn` | `false` | Leave it off. On, it ignores `days` and `start`/`end` and sends around the clock |
 | `eventToStop` | empty | See section 7 |
+
+`trackLinks`, `trackOpens` and `blacklistUnsub` are **required in every call** to
+`PATCH /settings`, even when you are not changing them: the route replaces the whole
+object, so omitting one resets it to its default.
 
 On LinkedIn volume: keep new invitations well under the platform's weekly ceiling. A
 widely used rule of thumb is around 100 invitations per week on an established account,

@@ -234,6 +234,21 @@ LinkedIn account. Attach as many as the ramp plan requires. Every identity must 
 email provider attached when the campaign has an email step, and a campaign with a
 LinkedIn step needs either one shared LinkedIn account or one per identity.
 
+Get the real identifiers rather than guessing them:
+
+| What you need | Where it comes from |
+|---|---|
+| Email mailbox id | `GET /email-providers`, field `_id` on each provider |
+| LinkedIn account id | `GET /linkedin-scrappers/authes`, field `_id`, only entries whose `status` is `valid` |
+| Tracking domain status | `GET /domains`, a domain counts only when its `status` is `OK` |
+
+`outreach-deliverability` already collects all three when it runs, so read its output
+before calling these again. The LinkedIn response also carries a live session token:
+read the id and the status, and never print or store the rest.
+
+Then `PATCH /advanced/campaigns/{id}/identities` with `{"identities": [...]}`, where
+each entry carries a `name` and at least one of `email`, `linkedin` or `whatsapp`.
+
 **Recipients**: attach the list from section 1. Confirm the contact count Emelia shows
 matches the rows you loaded. A campaign is capped at 15,000 recipients.
 

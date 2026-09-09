@@ -51,9 +51,10 @@ deliverability or the offer.
 
 ### 1. Inventory the mailboxes
 
-MCP: `list_email_providers` with no argument, then again with `disconnectedOnly: true`.
-REST has no documented equivalent, so without MCP ask the user to list the mailboxes
-connected in the app.
+REST: `GET /email-providers`, which returns `{"success": true, "providers": [...]}`.
+Verified live on 9 September 2026 with a plain API key. `GET /emails/providers` is an
+alias for the same list. With MCP you can also use `list_email_providers`, and
+`disconnectedOnly: true` to see only the broken ones.
 
 Each provider carries `_id`, `senderEmail`, `senderName`, `emailType` (`GOOGLE`,
 `OFFICE`, `SMTP`, `GOOGLEIMAP`), `disabled`, `disconnected`, `customDomain`, `warmup`
@@ -64,6 +65,55 @@ is the user's job in the app, not yours. Record it as a blocker.
 
 Group the mailboxes by domain. Everything below is per domain for DNS, per mailbox for
 warmup and volume.
+
+**Write down the `_id` of each mailbox.** That is what `PATCH /advanced/campaigns/{id}/identities`
+expects when you assign who sends the campaign, so collecting them here saves a round
+trip later.
+
+### 1b. LinkedIn accounts
+
+`GET /linkedin-scrappers/authes` returns `{"success": true, "authes": [...]}`, one entry
+per connected LinkedIn account, with `_id`, `status` (`valid` when usable), `createdAt`
+and `disabled`. The `_id` is what a LinkedIn step needs as its identity.
+
+**Handle this response carefully.** It also contains `token`, `li_a`, `jsessionid` and
+`ua`: a live LinkedIn session for that account. Read the two fields you need, and never
+print the response, never write it to a file, never paste it into a report or an issue.
+Anyone holding those values can act as that account.
+
+### 1c. The tracking domain, which the unsubscribe link depends on
+
+Three things go through Emelia's tracking server: rewritten links when `trackLinks` is
+on, the open pixel when `trackOpens` is on, and **the unsubscribe link, always**. So a
+sequence carrying an opt-out link is already using tracking, whether or not the user
+turned the other two on.
+
+By default that is Emelia's shared tracking domain, which works but carries the
+reputation of everyone else sending through it. A custom tracking domain on the user's
+own domain is better, and it is attached **per sending account**, not per campaign.
+
+`GET /domains` returns `{"status": "OK", "domains": [...]}` with `domainName`, `status`
+and `date` for each. A domain counts only when its `status` is `OK`: that is the exact
+condition the sender checks before using it instead of the shared one.
+
+Setting one up, when the user has none:
+
+1. In the DNS zone of their sending domain, create a **CNAME** record, for example
+   `tracking.theirdomain.com`, pointing to **`emelia.link`**. No trailing dot issues,
+   no A record, no wildcard.
+2. Wait for propagation, then verify with `dig CNAME tracking.theirdomain.com +short`,
+   which must answer `emelia.link`.
+3. `POST /domains/check` with `{"domain": "tracking.theirdomain.com", "CNAME": "emelia.link"}`
+   to have Emelia resolve it, then `POST /domains/add` to register it, then
+   `POST /domains/assign` to attach it to a sending account.
+
+The subdomain must be dedicated to tracking. Do not point a domain already used for the
+website or for mail, and do not reuse the same tracking subdomain across unrelated
+brands, which defeats the point.
+
+If the user does not want a custom domain, say plainly what they are accepting: the
+shared domain works, and their click and open links live on a hostname other senders
+also use.
 
 ### 2. Read the DNS records, with these exact commands
 

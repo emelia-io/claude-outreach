@@ -300,11 +300,12 @@ Three more calls, all by API:
 - `PATCH /advanced/campaigns/{id}/settings` with `{"settings": { ... }}`. Note that
   `trackLinks`, `trackOpens` and `blacklistUnsub` are **required** inside that object,
   so send them even when you are not changing them.
-- `PATCH /advanced/campaigns/{id}/recipients` with `{"recipients": {"lists_id": [...]}}`
-  and `excludedLists` when you have exclusions.
+- `PATCH /advanced/campaigns/{id}/recipients` with `{"lists": [...], "excludedLists":
+  [...]}` at the top level of the body. `lists` is required even when empty, and both
+  arrays replace what was there.
 - `PATCH /advanced/campaigns/{id}/identities` with `{"identities": [...]}`, each entry
-  carrying a `name` and at least one of `email` or `linkedin`, using the
-  ids collected by `outreach-deliverability`.
+  carrying a `name` and at least one of `email` or `linkedin`, whose values are the
+  **provider ids**, not the addresses.
 
 The settings fields, with the values the product accepts:
 
@@ -327,6 +328,23 @@ The settings fields, with the values the product accepts:
 LinkedIn account. Attach as many as the ramp plan requires. Every identity must have an
 email provider attached when the campaign has an email step, and a campaign with a
 LinkedIn step needs either one shared LinkedIn account or one per identity.
+
+`GET /email-providers` lists the mailboxes. The address is in `senderEmail`, not `email`,
+and the id you attach is `_id`. Skip any entry whose `disabled` or `disconnected` is
+true, and read `customDomain.status`: `OK` means that mailbox has its own tracking
+domain, which is what makes the opt out link and the click tracking work on its sends.
+
+**Never attach every mailbox the account holds.** An agency account, and any account
+that has ever run a campaign for someone else, carries several sending domains belonging
+to different senders. Attaching all of them sends this campaign's cold email from a
+stranger's domain and burns a reputation that is not yours to spend. Filter to the
+domains that belong to this campaign's sender, list the addresses back to the user, and
+get a yes before you patch. The same account can legitimately hold the same address more
+than once, so deduplicate on the id.
+
+**An empty `identities` array is accepted with a 200 and leaves the campaign unable to
+send.** So is an array built from a field name that does not exist, which is the same
+thing with extra steps. Read the campaign back after patching and count the identities.
 
 Get the real identifiers rather than guessing them:
 

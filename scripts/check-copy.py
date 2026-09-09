@@ -10,7 +10,7 @@ One directive is read from the file header, and it is optional:
 A Mode A step, whose body is a carrier variable holding the whole message, is detected
 from the body itself: the copy checks are skipped there and reported as skipped.
 """
-import csv, re, sys
+import csv, pathlib, re, sys
 SEQ, LEADS = sys.argv[1], sys.argv[2]
 ROOT_VARS = set("""firstName lastName fullName email secondaryEmail phone mobilePhone jobTitle
 seniority department gender age language linkedinUrlProfile twitterUrl country region city
@@ -60,6 +60,25 @@ def say(level, step, msg):
     global hard
     if level == "FAIL": hard += 1
     out.append(f"{level:4} step {step}: {msg}")
+
+# Length thresholds live in one place: scripts/audit-emails.py derives them from
+# CHARS_PER_LINE, which is the number the reference screenshot fixes. Read them from
+# there instead of keeping a second, contradictory band here.
+def _length_table():
+    src = (pathlib.Path(__file__).parent / "audit-emails.py")
+    if not src.exists():
+        return {}, (90, 260, 340)
+    ns = {}
+    txt = src.read_text()
+    for block in ("CHARS_PER_LINE", "LENGTH", "LENGTH_DEFAULT"):
+        m = re.search(rf"^{block}\s*=\s*(.+?)(?=\n[A-Z_]+\s*=|\n\n)", txt, re.S | re.M)
+        if m:
+            try: ns[block] = eval(m.group(1).split("#")[0].strip())
+            except Exception: pass
+    return ns.get("LENGTH", {}), ns.get("LENGTH_DEFAULT", (90, 260, 340))
+
+LENGTH, LENGTH_DEFAULT = _length_table()
+
 strip = lambda t: re.sub(r"\{[^}]*\}", " ", re.sub(r"<[^>]*>", " ", t))
 words = lambda t: re.findall(r"[A-Za-zÀ-ÿ']+", strip(t))
 stems = lambda t: {w.lower() for w in words(t) if len(w) > 3}
@@ -87,8 +106,15 @@ for s in steps:
         say("INFO", n, "carrier step, the message is in a variable. Run the copy checks "
                        "on the rendered sample, not on this file")
     else:
-        if n == 1 and not (50 <= w <= 125): say("FAIL", n, f"{w} words, step 1 must be 50 to 125")
-        if n > 1 and w > 90: say("FAIL", n, f"{w} words, a follow-up must stay under 90")
+        lo, target, cap = LENGTH.get(n, LENGTH_DEFAULT)
+        chars = len(re.sub(r"\s+", " ", strip(copy)).strip())
+        if chars > cap:
+            say("FAIL", n, f"{chars} chars ({w} words), step {n} caps at {cap}. "
+                           f"One medium line, one long line, one short line is the shape")
+        elif chars > target:
+            say("WARN", n, f"{chars} chars ({w} words), aim for {target} on step {n}")
+        elif chars < lo:
+            say("WARN", n, f"{chars} chars, step {n} is thin, {lo} is the floor")
     links = len(re.findall(r"https?://", copy))
     if n == 1 and links > 1: say("FAIL", n, f"{links} links in step 1, keep 0 or 1")
     if links > 2: say("FAIL", n, f"{links} links, keep 1 per step")

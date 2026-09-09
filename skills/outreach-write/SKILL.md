@@ -135,20 +135,17 @@ Say this when the user asks for the messages, not in a footnote afterwards.
 A sequence is a handful of model calls. A per contact message is one call each, so the
 two scale very differently. Writing 100 to 200 sequences in a day sits comfortably inside
 a normal Claude Code subscription. Generating 1,000 or 10,000 per contact messages does
-not fit in a monthly plan, and starting anyway means stopping halfway down the list with
-half a campaign written and no way to finish it today.
+not, and starting anyway means stopping halfway down the list with half a campaign
+written and no way to finish it today. For that volume the user sets `ANTHROPIC_API_KEY`
+and the run goes against the Anthropic API, billed per message. **Use Claude Sonnet**:
+writing a cold email from a filled brief is not a reasoning problem, Sonnet does it as
+well as a larger model, and at 10,000 rows the price is what decides.
 
-For that volume the user sets `ANTHROPIC_API_KEY` and the generation runs against the
-Anthropic API, billed per message. **Use Claude Sonnet.** Writing a cold email from a
-filled brief is not a reasoning problem: Sonnet does it as well as a larger model, and at
-10,000 rows the price is what decides.
-
-An order of magnitude so the user can choose, with its assumptions on the table: at
-roughly 1,500 input and 300 output tokens per message, and Claude Sonnet 5 listed at $2
-per million input tokens and $10 per million output tokens on anthropic.com/pricing in
-September 2026, 1,000 messages come to about $6. Cache the shared instruction block and
-send the run through the Batch API and it costs meaningfully less. Check the current
-price before you quote it to anyone.
+An order of magnitude, with its assumptions on the table: at roughly 1,500 input and 300
+output tokens per message, and Claude Sonnet 5 listed at $2 per million input tokens and
+$10 per million output tokens on anthropic.com/pricing in September 2026, 1,000 messages
+come to about $6, and less with a cached instruction block and the Batch API. Check the
+current price before you quote it to anyone.
 
 The question to ask before any run above 200:
 

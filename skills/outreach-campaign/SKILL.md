@@ -201,7 +201,9 @@ Variables, exactly as the engine resolves them:
   `{{jobTitle}}`, `{{companyName}}`, `{{city}}`, `{{country}}`, `{{linkedinUrlProfile}}`
   and the rest of the contact fields, plus every custom key you loaded in section 2.
 - `{{unsubscribe_link}}` renders the opt out URL and feeds the `List-Unsubscribe` header.
-  Put it in every email step. This is not optional.
+  Put it from step 2 onwards, not on step 1: the first touch stays as short as
+  possible. Note the trade off, the `List-Unsubscribe` header is only set when the
+  variable is in that step's body, so step 1 goes out without it.
 - `{{SENDER}}` is not resolved by the sending engine and renders empty. Write your own
   name in the copy instead.
 - Resolution order is contact field, then custom variable, then company field. A custom
@@ -241,7 +243,7 @@ matches the rows you loaded. A campaign is capped at 15,000 recipients.
 |---|---|---|
 | Deliverability | `## Verdict` in `outreach/deliverability.md` | READY, or READY WITH LIMITS and the cadence set to that cap |
 | List verified | the verification column in `outreach/leads.csv` | every row verified, invalid rows removed |
-| Unsubscribe | grep the copy | `{{unsubscribe_link}}` present in every email step |
+| Unsubscribe | grep the copy | `{{unsubscribe_link}}` present from step 2 onwards, as a link and not a bare variable |
 | Variables resolved | count blanks per variable across the CSV | 0 blanks, or a fallback written into the copy |
 | Test email | send one from the campaign to your own address | received, read on a phone, every variable filled, links working |
 | Subject on step 1 | the campaign in the app | not empty |
@@ -314,7 +316,6 @@ read.
   "preflight": {
     "deliverability": "READY WITH LIMITS",
     "listVerified": true,
-    "unsubscribeInEverySteps": true,
     "blankVariables": { "icebreaker": 0, "companyName": 0 },
     "testEmailSentTo": "paul@get-acme.com",
     "confirmedBy": "user, 2026-03-12T18:41:00Z"

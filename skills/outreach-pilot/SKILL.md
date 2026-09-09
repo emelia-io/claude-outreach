@@ -75,10 +75,18 @@ Credits, on 100 contacts:
 
 Each job consumes Emelia credits, and the price per job depends on your plan: read it
 in the Emelia app before you answer yes. This skill states the count and waits for an
-explicit yes before spending anything. On the Start plan the API accepts 100 requests
-per minute (300 on Grow, 1,000 on Scale, 30 with no subscription), and each enrichment
-is one call to start the job plus one or more to poll it, so a 100 row run takes a few
-minutes. That is normal. Do not retry in a loop when you see a rate limit.
+explicit yes before spending anything.
+
+**Submit the whole batch, then poll the whole batch.** The finder is asynchronous: the
+POST returns a `jobId` at once and the GET answers when the server is done. Waiting out
+one row before starting the next turns a 250 row run into two hours; sent as a wave the
+same 250 come back in a minute or two, because the jobs run in parallel server side.
+`scripts/find-emails.py` does this, and `--enough 120` lets it stop as soon as the
+campaign has the contacts it needs, leaving the slower rows to finish on their own with
+their `jobId` written into the file. The `/tools/` routes are exempt from the per plan
+rate limit, so there is nothing to pace: hold back only on the campaign and list routes
+(100 requests per minute on Start, 300 on Grow, 1,000 on Scale, 30 with no
+subscription). Do not retry in a loop when you see a rate limit.
 
 ### Why 100 and not 1,000
 

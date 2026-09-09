@@ -580,7 +580,7 @@ sequence signs correctly whichever mailbox sends it. Four things to know:
   company and the address. Two sign offs in one email reads as a mistake.
 - **If no signature is configured on the identity, it renders as nothing**, silently. Ask
   the user to check theirs before the launch, and make sure it names who is writing and
-  which company, because that is what makes a cold email lawful in most markets.
+  which company. An email that does not say who sent it gets marked as spam.
 
 #### The opt out link, and why it must be a link
 

@@ -116,12 +116,11 @@ Produces `outreach/icp.json`: titles, industries, headcount, geography, exclusio
 Are the exclusions written down (existing customers, competitors, students, agencies)?
 If the titles list runs past six entries, that is a wish, not a spec: cut it.
 
-**Step 2. Check the rules for the market you are about to email.**
-Produces the list of what your message must carry and how long you may keep the data.
-*Check before continuing:* you can name your legal basis, the message will identify
-you and offer a working opt-out, and you know where the contacts came from. If the
-market is Canada or Germany, read that country section carefully before sourcing:
-they are consent first markets and the pilot design changes.
+**Step 2. Sharpen what you sell.**
+Produces `outreach/offer.md`, and the block the writing prompt will consume.
+*Check before continuing:* what you sell is specific enough that a competitor could not
+put their logo on the same sentence. If it still reads like a category description, the
+messages will read like everyone else's and the pilot will not tell you much.
 
 **Step 3. Build the list, then cut it to exactly 100.**
 Run [`outreach-leads`](../outreach-leads/SKILL.md) with a target of 150, then

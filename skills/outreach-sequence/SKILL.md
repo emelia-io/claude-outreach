@@ -72,8 +72,9 @@ and stretch them when the audience is one that checks LinkedIn rarely: founders 
 companies, technical roles, anyone outside sales and recruiting.
 
 Emelia ships five campaign templates, and one of them is nearly always closer to the
-right answer than a tree you invent. Picking one in the app builds the whole step tree
-for you, delays and conditions already wired. You then cut what you do not need, paste
+right answer than a tree you invent. Their trees are reproduced in this
+skill, delays and conditions already wired, so you build one by pushing it through
+`PATCH /advanced/campaigns/{id}/steps` rather than by clicking. You then cut what you do not need, paste
 the copy in, and record what you changed. Design from scratch only when none of the five
 fits, and write the reason into `campaign.json`.
 

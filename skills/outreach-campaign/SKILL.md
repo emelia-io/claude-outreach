@@ -40,7 +40,7 @@ read what happened after the launch (`outreach-audit`).
 - **`outreach/campaign.json`.** The sequence spec written by `outreach-sequence`. If it
   does not exist, build it here from `sequence.md` and confirm it with the user.
 - **`EMELIA_API_KEY`**, or the Emelia MCP server. Without either, produce every file and
-  the exact steps to run in the app, and say plainly that nothing was created.
+  the exact calls it would have made, and say plainly that nothing was created.
 
 ## How to do it
 
@@ -165,17 +165,21 @@ LinkedIn only campaign: `POST https://api.emelia.io/linkedin/campaigns` with the
 `{"name":"..."}` body; it returns the whole campaign object rather than just the id. With
 MCP, `create_campaign` with `{ name }` does the same thing.
 
-**The campaign is created empty.** `name` is the only field the endpoint takes. Steps,
-schedule and sending accounts are not exposed by the API today. Say that to the user
-before they discover it: the next two sections happen in the Emelia app, once, and
-everything after that is programmable again.
+**The campaign is created empty**, with a default schedule and empty steps. `name` is
+the only field that endpoint takes, but everything else is set right after, by API.
 
-### 5. Build the steps in the app, from campaign.json
+### 5. Push the steps, from campaign.json
 
-Open the campaign in Emelia and build the sequence exactly as `outreach/campaign.json`
-describes it. Read the spec back step by step while they build, then verify what was built
-with `get_campaign` (MCP) or `GET /advanced/campaigns/{campaignId}` and compare it to the
-file. The shapes Emelia uses, so your spec matches what the interface asks for:
+`PATCH /advanced/campaigns/{campaignId}/steps` with the tree wrapped in an object:
+`{"steps": { ... }}`, not an array. Read the campaign back first with
+`GET /advanced/campaigns/{campaignId}` so you change what you mean to change, then push,
+then read it back again and compare it to `outreach/campaign.json`.
+
+The tree is a linked structure, not a list: it starts at a `START` node and each node
+carries the next one, with `yes` and `no` branches on a condition. The five shipped
+templates in `outreach-sequence` are the reference for what a valid tree looks like.
+
+The shapes Emelia uses:
 
 - `stepType` is one of `EMAIL`, `LINKEDIN_VISIT`, `LINKEDIN_CONNECTION`,
   `LINKEDIN_MESSAGE`, `CONDITION`, `TASK`, `WAIT`.
@@ -211,8 +215,18 @@ Variables, exactly as the engine resolves them:
 
 ### 6. Cadence, sending accounts and recipients
 
-Still in the app, on the campaign settings. The fields, with the values the product
-accepts:
+Three more calls, all by API:
+
+- `PATCH /advanced/campaigns/{id}/settings` with `{"settings": { ... }}`. Note that
+  `trackLinks`, `trackOpens` and `blacklistUnsub` are **required** inside that object,
+  so send them even when you are not changing them.
+- `PATCH /advanced/campaigns/{id}/recipients` with `{"recipients": {"lists_id": [...]}}`
+  and `excludedLists` when you have exclusions.
+- `PATCH /advanced/campaigns/{id}/identities` with `{"identities": [...]}`, each entry
+  carrying a `name` and at least one of `email`, `linkedin` or `whatsapp`, using the
+  ids collected by `outreach-deliverability`.
+
+The settings fields, with the values the product accepts:
 
 | Setting | Accepted | What to set for cold outreach |
 |---|---|---|
@@ -261,11 +275,11 @@ matches the rows you loaded. A campaign is capped at 15,000 recipients.
 | Unsubscribe | grep the copy | `{{unsubscribe_link}}` present from step 2 onwards, as a link and not a bare variable |
 | Variables resolved | count blanks per variable across the CSV | 0 blanks, or a fallback written into the copy |
 | Test email | send one from the campaign to your own address | received, read on a phone, every variable filled, links working |
-| Subject on step 1 | the campaign in the app | not empty |
+| Subject on step 1 | `GET /advanced/campaigns/{id}` | not empty |
 | Subscription | Emelia account | active, the product refuses to start a campaign without one |
-| Identities | the campaign in the app | at least one, none disconnected or expired |
+| Identities | `GET /advanced/campaigns/{id}` | at least one, none disconnected or expired |
 | Recipients | `get_campaign` | above 0, at most 15,000, and at least one contact reachable on each channel the sequence uses |
-| Schedule | the campaign in the app | set, with days and hours |
+| Schedule | `GET /advanced/campaigns/{id}` | set, with days and hours |
 
 A blank variable is the most common way a good campaign embarrasses someone. Count them
 per variable and show the count. If `{{icebreaker}}` is empty on 34 rows, either write

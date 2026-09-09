@@ -293,12 +293,6 @@ when the copy is not the problem, it says the copy is not the problem.
 For enrichment and sending, yes. Everything else, including building and cleaning
 the list and writing the sequence, runs in dry run without any key.
 
-**Is cold email legal?**
-In B2B, in most markets, under conditions: a legitimate interest in contacting that
-person in that role, a message relevant to their job, a clear sender identity and a
-working opt-out link from the second step onwards. Check what applies in the country
-you are targeting before you send.
-
 **Does this work outside France?**
 Yes. Basile covers French companies specifically; LinkedIn and your own CSVs cover
 everywhere, and enrichment and sending are global.

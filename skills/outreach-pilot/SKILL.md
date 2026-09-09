@@ -28,7 +28,7 @@ the whole chain once, slowly.
 Do not use it when you already know the market and the copy works: run
 [`outreach`](../outreach/SKILL.md) with `full` instead, which does the same steps
 without stopping at each one. Do not use it to fix a campaign that is already
-running: that is [`outreach-analyze`](../outreach-analyze/SKILL.md).
+running: that is [`outreach-audit`](../outreach-audit/SKILL.md).
 
 ## Inputs
 
@@ -117,7 +117,6 @@ Are the exclusions written down (existing customers, competitors, students, agen
 If the titles list runs past six entries, that is a wish, not a spec: cut it.
 
 **Step 2. Check the rules for the market you are about to email.**
-Run [`outreach-compliance`](../outreach-compliance/SKILL.md) with the country.
 Produces the list of what your message must carry and how long you may keep the data.
 *Check before continuing:* you can name your legal basis, the message will identify
 you and offer a working opt-out, and you know where the contacts came from. If the
@@ -134,13 +133,13 @@ domains and rows too thin to personalize. Sourcing exactly 100 leaves you with 7
 could you write the first line of an email to that person without inventing anything?
 If the answer is no for three of the ten, the list is the problem. Go back to step 1.
 
-**Step 4. Find the missing addresses, then verify all of them.**
+**Step 4. Find the missing addresses, and verify only the ones you brought yourself.**
 Run [`outreach-enrich`](../outreach-enrich/SKILL.md).
 Produces `outreach/enrichment.json`: found, not found, verification result, cost.
 Filter first (step 3), enrich second. Never the other way round: credits spent on rows
 you are about to delete are gone.
 *Check before continuing:* the run reports found and not found separately, as
-percentages. Keep only the rows whose verification came back `valid`. Drop catch-all
+percentages. Keep the rows the finder returned as `valid`, plus the ones you brought that the verifier confirmed. Drop catch-all
 and unknown rows from the pilot rather than "trying them anyway", because on 100
 contacts you cannot afford their bounce risk. If you end up below 80 usable rows,
 source more before launching: a pilot on 60 contacts answers nothing.
@@ -188,7 +187,7 @@ and a contact count that matches the number you verified at step 4. If those cou
 differ, do not launch, find the missing rows first.
 
 **Step 9. Read what happened.**
-Run [`outreach-analyze`](../outreach-analyze/SKILL.md) three times, at day 3, day 7 and
+Run [`outreach-audit`](../outreach-audit/SKILL.md) three times, at day 3, day 7 and
 day 14. Produces `outreach/report.md`.
 
 ### The three read points
@@ -243,7 +242,6 @@ Target market: France. Offer: API monitoring for SaaS teams.
 | # | Step | Status | Result | Decided |
 |---|------|--------|--------|---------|
 | 1 | ICP | done | CTO / VP Eng, French SaaS, 20 to 200 people, excl. agencies | 2026-09-08 |
-| 2 | Compliance | done | FR, legitimate interest, notice in email 1, opt-out link | 2026-09-08 |
 | 3 | List | done | 152 sourced (Basile), 104 after filtering | 2026-09-08 |
 | 4 | Enrich | done | 104 rows: 71 emails found (68%), 66 verified valid, 5 dropped | 2026-09-08 |
 | 5 | Copy | done | angle: "your status page lies", one ask: 15 min | 2026-09-08 |

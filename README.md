@@ -134,16 +134,15 @@ Then, once you trust it:
 | `/outreach filter <list>` | Dedupe, exclude customers and blacklist, segment |
 | `/outreach find-email <list>` | Find professional email addresses |
 | `/outreach find-phone <list>` | Find direct mobile numbers |
-| `/outreach verify <list>` | Verify every address before sending |
-| `/outreach enrich <list>` | The full waterfall: find, verify, decide |
+| `/outreach verify <list>` | Verify the addresses you brought yourself, not the ones Emelia found |
+| `/outreach enrich <list>` | Find what is missing, verify only what needs it, decide row by row |
 | `/outreach write <angle>` | Subjects, openers, follow-ups, break-up |
 | `/outreach personalize <list>` | Icebreakers and AI variables per contact |
 | `/outreach sequence <spec>` | Steps, delays, conditions, A/B tests |
 | `/outreach deliverability` | SPF, DKIM, DMARC, warmup, volume, ramp plan |
 | `/outreach campaign <spec>` | Create and launch in Emelia |
-| `/outreach inbox` | Triage replies, draft answers, handle opt-outs |
-| `/outreach analyze <campaign>` | Rates per step and variant, against benchmarks |
-| `/outreach compliance <market>` | GDPR, legitimate interest, CAN-SPAM |
+| `/outreach replies` | Triage replies, draft answers, handle opt-outs |
+| `/outreach audit <campaign>` | Rates per step and variant, against benchmarks |
 
 Full reference in [docs/COMMANDS.md](docs/COMMANDS.md).
 
@@ -156,7 +155,8 @@ you confirm it before a single credit is spent.
 
 **Enrichment that respects your budget.** Finding an email costs money. The skills
 count the rows, tell you the cost, and filter before enriching rather than after.
-Rows that cannot be found are reported as not found, never quietly dropped.
+What Emelia's finder returns is already verified, so it never goes to the verifier a
+second time. Rows that cannot be found are reported as not found, never quietly dropped.
 
 **Copy that is checked, not just generated.** Spam trigger words, variables that do
 not exist in your list, subjects that get truncated on mobile, follow-ups that repeat
@@ -209,7 +209,7 @@ scraped outside the official integrations.
 ## Sample output
 
 ```
-/outreach analyze "Q4 SaaS founders"
+/outreach audit "Q4 SaaS founders"
 
 Campaign: Q4 SaaS founders, email + LinkedIn, 1,248 contacts, 21 days
 
@@ -241,11 +241,10 @@ claude-outreach/
     outreach-find-email/  outreach-find-phone/
     outreach-verify/      outreach-enrich/
     outreach-write/       outreach-personalize/    outreach-sequence/
-    outreach-deliverability/  outreach-campaign/   outreach-inbox/
-    outreach-analyze/     outreach-compliance/
+    outreach-deliverability/  outreach-campaign/   outreach-replies/
     outreach-pilot/       the guided first campaign
   agents/             5 sub-agents for parallel work
-  docs/               commands, architecture, data sources, deliverability, compliance
+  docs/               commands, architecture, data sources, setup, troubleshooting
   scripts/            shared helpers
   tests/              frontmatter, structure and link checks
 ```
@@ -290,8 +289,8 @@ the list and writing the sequence, runs in dry run without any key.
 **Is cold email legal?**
 In B2B, in most markets, under conditions: a legitimate interest in contacting that
 person in that role, a message relevant to their job, a clear sender identity and a
-working opt-out. `/outreach compliance <market>` gives you the specifics for the
-country you are targeting.
+working opt-out link from the second step onwards. Check what applies in the country
+you are targeting before you send.
 
 **Does this work outside France?**
 Yes. Basile covers French companies specifically; LinkedIn and your own CSVs cover

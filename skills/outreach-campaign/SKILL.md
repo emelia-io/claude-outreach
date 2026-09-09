@@ -17,7 +17,7 @@ holds the contacts, a campaign that holds the sequence, the two wired together, 
 cadence set, and the launch done only after you say yes in plain words.
 
 It records every real identifier in `outreach/campaign.json` so the next steps
-(`outreach-inbox`, `outreach-analyze`) can find the campaign without asking you again.
+(`outreach-replies`, `outreach-audit`) can find the campaign without asking you again.
 
 ## When to use it
 
@@ -27,7 +27,7 @@ calls the deliverability gate first and stops if the answer is BLOCKED.
 Use a different skill when you want to design the sequence rather than create it
 (`outreach-sequence`), write or fix the copy (`outreach-write`), add contacts to a
 campaign that is already running (come back here, section 3, the list is the way in), or
-read what happened after the launch (`outreach-analyze`).
+read what happened after the launch (`outreach-audit`).
 
 ## Inputs
 

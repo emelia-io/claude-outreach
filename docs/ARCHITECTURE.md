@@ -54,12 +54,12 @@ outreach/
   enrichment.json     what was found, what was not, what it cost
   sequence.md         the copy, step by step, with variables
   campaign.json       what was created in Emelia, with ids
-  report.md           results and what to change next
+  audit.md            what is wrong with the emails, and the one thing to fix
 ```
 
 Those six are the contract: any skill may read them and expects them to be there.
 Steps also drop side files next to them (`leads-dropped.csv`,
-`deliverability.md`, `inbox.md`, `compliance.md`, one `leads-<source>.csv` per
+`deliverability.md`, `replies.md`, one `leads-<source>.csv` per
 parallel sourcing agent). Side files are safe to delete; contract files are not.
 
 ### The columns every step expects in `leads.csv`
@@ -105,9 +105,9 @@ domain returns, and it means nobody can tell you whether that address exists.
     |                                              fans out: outreach-deliverability-auditor
  9  outreach-campaign .......... live in Emelia    GATE: you confirm the launch
     |
-10  outreach-inbox ............. inbox.md          GATE: you send every reply
+10  outreach-replies ............. replies.md          GATE: you send every reply
     |
-11  outreach-analyze ........... report.md         fans out: outreach-analyst
+11  outreach-audit ........... audit.md          fans out: outreach-auditor
 ```
 
 Six gates, and they are the whole point. Four of them protect your money and your

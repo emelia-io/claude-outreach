@@ -200,7 +200,6 @@ Two rules for what happens next:
 
 - Numbers go to a human or to a CRM, not to an autodialler you built in a script.
 - Cold calling rules differ from email rules. In France, check the Bloctel opt-out
-  list before calling consumers, and prefer the professional line. `outreach-compliance`
   covers the market you are calling.
 
 ### 6. Realistic hit rates

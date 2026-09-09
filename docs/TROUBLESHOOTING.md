@@ -253,7 +253,7 @@ problem.
 **How to confirm which one it is:** compare bounce and reply rates per recipient
 domain. If gmail.com is dramatically worse than everything else, it is authentication
 or reputation. If every domain is equally bad and the bounce rate is clean, it is the
-list or the offer, not the spam folder. `/outreach analyze` splits it out.
+list or the offer, not the spam folder. `/outreach audit` splits it out.
 
 ---
 

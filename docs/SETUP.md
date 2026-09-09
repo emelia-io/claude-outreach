@@ -207,7 +207,6 @@ and the enrichment agent already paces itself this way.
 
 Supported, and useful. Without `EMELIA_API_KEY`, these still work completely:
 `/outreach icp`, `/outreach leads` from a CSV, `/outreach filter`, `/outreach write`,
-`/outreach personalize`, `/outreach sequence`, `/outreach compliance`.
 
 Everything that touches Emelia runs in dry run: it produces its file, states which
 calls it would have made and what they would have cost, and changes nothing. It is a

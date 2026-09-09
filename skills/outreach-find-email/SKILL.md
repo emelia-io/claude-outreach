@@ -1,6 +1,6 @@
 ---
 name: outreach-find-email
-description: "Find professional email addresses for the people on a lead list, one at a time or in bulk, with Emelia's email finder. Takes a full name plus a company name or domain, states the credit cost before spending anything, polls each job to completion, and records what was found and what was not in outreach/enrichment.json and outreach/leads.csv. Never guesses an address pattern and calls it found. Triggers on: find email, email finder, find emails, find the email of, email address, email lookup, email enrichment, enrich emails, missing emails, bulk email finder, get emails for my list."
+description: "Find professional email addresses for the people on a lead list, one at a time or in bulk, with Emelia's email finder. Takes a full name plus a company name or domain, states the credit cost before spending anything, polls each job to completion, and records what was found and what was not in outreach/enrichment.json and outreach/leads.csv. What the finder returns is already verified and goes straight into a campaign, so it never needs a second pass through the verifier. Never guesses an address pattern and calls it found. Triggers on: find email, email finder, find emails, find the email of, email address, email lookup, email enrichment, enrich emails, missing emails, bulk email finder, get emails for my list."
 license: MIT
 metadata:
   author: Emelia
@@ -18,6 +18,11 @@ before spending anything, runs the lookups, and reports the discovery rate hones
 found, not found, still running. It does not invent addresses: when the finder
 returns nothing, the row is marked `not_found`, not filled with a guess.
 
+**What it returns is ready to send.** Every result carries a `qualification` field,
+which is a verification verdict from the source that checked the mailbox, not a
+confidence score the finder made up. An address returned as `valid` has been
+verified. Put it in the campaign as it is.
+
 ## When to use it
 
 Use it when you have a list with names and companies but no email addresses, or when
@@ -28,11 +33,30 @@ Use a different skill when:
 - The list is not filtered yet. Run `outreach-filter` first: every credit spent on a
   row you are about to exclude is wasted, and this is the most common way people burn
   their balance.
-- You already have addresses and want to know whether they will bounce
-  (`outreach-verify`).
+- You already have addresses **from somewhere else** and want to know whether they
+  will bounce (`outreach-verify`). That skill is for a CSV, an old CRM export or
+  another tool's output, not for what this one returns.
 - You want the whole waterfall under one budget (`outreach-enrich`, which calls this
   skill).
 - You want a mobile number (`outreach-find-phone`, which costs far more).
+
+### Do not send the results to the verifier
+
+The reflex after any enrichment is to run a verification pass over everything. Here
+it is a pure cost. Emelia's finder verifies before it hands you the address, so a
+verification of a `valid` result costs 0.25 credit and returns the verdict you
+already have. On 1,000 found addresses that is 250 credits for nothing.
+
+| What the finder gave you | Verify it? |
+|---|---|
+| `qualification: "valid"` | **No.** It is verified. Send it. |
+| `qualification: "risky"` | Your choice. It came from the secondary source below its "sure" threshold, so it is the one result that was not proven. Verify it (0.25 credit) or drop the row. |
+| Nothing, `not_found` | Nothing to verify. |
+| An address you built from an observed pattern, per section 5 | **Yes, always.** A pattern is your guess, not Emelia's answer. |
+
+The freshness rule from `outreach-verify` still applies later: a find from last week
+is fresh, a find from last year is not, and a large campaign on a year old file
+deserves a re-verification pass.
 
 ## Inputs
 
@@ -141,12 +165,14 @@ The result carries two different fields and people confuse them constantly.
 | `done` | Finished | Read `email` and `qualification`. |
 | `error` | The job failed | No address. Retry once, then mark the row `error` and move on. Do not loop. |
 
-`qualification` is about the address:
+`qualification` is about the address, and it is a verification verdict, not a guess.
+Emelia queries a first source that checks the mailbox; when that source finds nothing
+usable it queries a second one, which reports its own confidence:
 
 | qualification | Meaning | Treat as |
 |---------------|---------|----------|
-| `valid` | The address checks out | Found |
-| `risky` | Returned by the second source when its confidence is below "sure" | Found but unproven. Verify it with `outreach-verify` before sending. |
+| `valid` | The mailbox was checked and accepted, by the first source or by the second one at its "sure" level | **Found and verified. Send it. Do not run it through `outreach-verify`, you would pay 0.25 credit for the same answer.** |
+| `risky` | Returned by the second source when its confidence is below "sure" | Found but unproven. This is the only result worth a verification, and dropping the row is the other valid answer. |
 | `invalid` | No usable address | Not found |
 
 Two more cases that are not qualifications:
@@ -291,8 +317,14 @@ into its `find_email` section instead of replacing it. Then say it in words:
 
 ```
 323 rows looked up, 241 addresses found (74.6%), 78 not found, 4 errors.
-241 credits spent. 23 of the 241 came back risky and are not safe to send until
-verified.
+241 credits spent.
+
+218 came back valid, which means verified: they go into the campaign as they are,
+with no verification pass. Checking them anyway would cost 54.5 credits and change
+nothing.
+
+23 came back risky, from the second source below its "sure" level. Those are the
+only ones worth 0.25 credit each to verify, or you drop them. Which?
 ```
 
 ## Checks before finishing
@@ -302,6 +334,9 @@ verified.
   with their original values. Nothing was reordered or dropped.
 - No address in the file came from a pattern unless it was verified and marked
   `email_source: pattern_verified`.
+- **No `valid` result from the finder was sent to `outreach-verify`.** Only pattern
+  candidates and, if the user asked for it, the `risky` rows went there. State the
+  count of finder results you did not re-check, so nobody adds that pass later.
 - Found plus not found plus errors plus pending equals the number of rows looked up.
   If it does not, a result was lost, so go and fetch it by `jobId`.
 - No job is left in `running`. Every `jobId` was either resolved or listed as pending
@@ -341,16 +376,26 @@ mailbox is what makes cold email look automated.
 **Names with particles or two surnames** (`de la Fuente`, `Van den Berg`). Send the
 name exactly as it appears in the source: do not normalise it, do not strip accents.
 
+**A verification pass was run over the results anyway.** Someone chained
+`outreach-verify` behind this skill out of habit. It is a real cost with no return:
+0.25 credit per row for a verdict the finder had already given. Say how much it cost,
+and remove the step rather than repeating it next run.
+
 ## Limits
 
 This skill finds business addresses. It does not confirm the person still works
 there, and a leaver's address can stay technically valid for months, so `valid` is
-not a promise that anyone will read it.
+not a promise that anyone will read it. A find is dated: fresh this month, stale next
+year, per the freshness table in `outreach-verify`.
 
 It cannot use a LinkedIn URL as input: the finder takes a name and a company. It does
-not find personal addresses and should not be pointed at consumer domains. It cannot
-tell you whether a domain is catch-all, which is the verifier's job, and until you
-run it a found address on a catch-all domain is unproven.
+not find personal addresses and should not be pointed at consumer domains.
+
+It does not label a domain as catch-all. That test belongs to `outreach-verify` and
+it is worth paying for on addresses you brought yourself, where you have no verdict
+at all. It is not worth paying for on finder output: the finder already gave a
+verdict per address, and a control test would only tell you that a domain the finder
+already handled is permissive.
 
 It does not send anything, does not add anyone to a campaign, and does not decide who
 is worth contacting.

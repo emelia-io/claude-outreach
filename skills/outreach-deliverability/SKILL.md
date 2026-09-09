@@ -28,7 +28,7 @@ raising the daily volume.
 
 Use a different skill when the question is not infrastructure: `outreach-verify` checks
 whether the addresses on your list exist, `outreach-write` checks the copy for spam
-patterns and subject length, `outreach-analyze` tells you whether a low reply rate is
+patterns and subject length, `outreach-audit` tells you whether a low reply rate is
 deliverability or the offer.
 
 ## Inputs

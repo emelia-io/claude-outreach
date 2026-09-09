@@ -1,6 +1,6 @@
 ---
 name: outreach-verify
-description: "Verify the deliverability of every email address on a list before you send to it, with Emelia's verifier, one at a time or in bulk. Sorts each address into send, drop or hold, detects catch-all domains with a control test, keeps the projected bounce rate under the threshold that protects sender reputation, and writes the verdicts into outreach/leads.csv and outreach/enrichment.json. Triggers on: verify email, email verification, email verifier, check emails, validate emails, bounce rate, hard bounce, catch-all, clean my list, list hygiene, deliverability check, is this email valid."
+description: "Verify the email addresses you brought yourself before you send to them: a CSV, an export from another tool, an old CRM extract, a contact base that has been sitting for a year. Sorts each address into send, drop or hold, detects catch-all domains with a control test, keeps the projected bounce rate under the threshold that protects sender reputation, and writes the verdicts into outreach/leads.csv and outreach/enrichment.json. Not for addresses Emelia's email finder returned, which come back verified already, so paying to check them again buys nothing. Triggers on: verify email, email verification, email verifier, check emails, validate emails, bounce rate, hard bounce, catch-all, clean my list, list hygiene, old list, stale contacts, deliverability check, is this email valid."
 license: MIT
 metadata:
   author: Emelia
@@ -8,33 +8,67 @@ metadata:
   category: sales
 ---
 
-# Verify before you send
+# Verify the addresses you did not find at Emelia
 
 ## What this does
 
-Checks each address on a list against Emelia's verifier and turns the answer into a
-decision: send it, drop it, or hold it for a small separate batch. It measures the
-bounce rate you are about to inflict on your sending domain and stops you when that
-number is too high. A bounce costs a fraction of a credit to avoid and weeks of
-sender reputation to survive.
+Checks addresses whose provenance you do not control against Emelia's verifier and
+turns the answer into a decision: send it, drop it, or hold it for a small separate
+batch. It measures the bounce rate you are about to inflict on your sending domain
+and stops you when that number is too high. A bounce costs a fraction of a credit to
+avoid and weeks of sender reputation to survive.
+
+It deliberately does not re-check what Emelia's email finder just returned. That
+address already carries a verification verdict, so paying for a second one buys you
+nothing.
 
 ## When to use it
 
-Always, on any list, before any campaign. Specifically:
+**The rule: verify what you did not find at Emelia.**
 
-- After `outreach-find-email`, on anything the finder marked `risky` and on anything
-  built from an address pattern.
-- On any list you did not build yourself: a purchase, an old CRM export, a conference
-  file, a scrape.
-- On any list older than 60 to 90 days. People change jobs, and a verification is a
-  photograph, not a guarantee.
-- Before restarting a campaign that was paused for more than a month.
+Emelia's email finder returns an address together with a `qualification` field, and
+that field is a verdict from the source that checked the mailbox, not a guess. An
+address the finder returned as `valid` is verified. Sending it through this skill
+costs 0.25 credit per row and changes nothing. On a 3,000 row list that is 750
+credits for an answer you already had.
 
-Skip it only on addresses that replied to you recently, or that someone on your team
-confirmed by hand this week.
+So use it on:
+
+- **Any list you did not build with the finder.** A CSV a colleague sent you, a CRM
+  export, a conference attendee file, a scrape, a purchased file, the output of
+  another enrichment tool.
+- **Addresses the finder flagged `risky`.** Those come from Emelia's secondary source
+  below its "sure" confidence threshold, so they are the one finder output that was
+  not proven. Verifying them is a real choice, and dropping them is the other one.
+- **Addresses you built from a pattern**, per `outreach-find-email` section 5. A
+  pattern is a guess until a verifier says otherwise.
+- **Anything old**, see the freshness table below.
+
+Do not use it on:
+
+- Addresses `outreach-find-email` just returned as `valid`. Send them.
+- Addresses that replied to you in the last few weeks. A reply is the strongest proof
+  a mailbox exists, and it is free.
+
+### Freshness: how old is too old
+
+A verification is a photograph, not a guarantee. As a rule of thumb, 5 to 10% of B2B
+addresses go bad every quarter because people change jobs, so a year old verdict is
+worth about as much as no verdict at all.
+
+| Age of the verdict, or of the find | Before a large campaign |
+|---|---|
+| Under 30 days | Do not re-verify. You would be paying for the same answer. |
+| 1 to 3 months | Re-verify only if the list is your main sending list for the quarter, or if the last campaign on it bounced more than usual. |
+| 3 to 12 months | Re-verify. Expect 5 to 20% to have gone bad. |
+| Over 12 months | Re-verify, and expect 20 to 30% losses. Budget for it before you promise a volume. |
+
+Same table for a paused campaign you are about to restart: under a month, restart;
+over three months, re-verify first.
 
 Use a different skill when you have no addresses at all (`outreach-find-email`), or
-when you want the whole waterfall under one budget (`outreach-enrich`).
+when you want the whole waterfall under one budget (`outreach-enrich`, which applies
+this rule for you and only sends the right rows here).
 
 ## Inputs
 
@@ -44,6 +78,19 @@ when you want the whole waterfall under one budget (`outreach-enrich`).
 
 Files: `outreach/leads.csv` in, `outreach/leads.csv` and
 `outreach/enrichment.json` out.
+
+The work list is not the whole file. Build it explicitly, and say so in the summary:
+
+```
+work list = rows with an address
+            minus rows whose email_source is "finder" and whose email_status is "valid"
+            minus rows already verified in the last 30 days
+            plus  rows whose email_source is "finder" and whose email_status is "risky", if the user wants them
+```
+
+If the file has no `email_source` column, you do not know where the addresses came
+from. Ask the user before assuming: "did these come out of Emelia's finder, or from
+somewhere else?" One question saves the whole spend when the answer is the finder.
 
 Access: `EMELIA_API_KEY` exported in the shell. The REST API is the documented path
 and this skill assumes it. If the Emelia MCP server is also configured, its
@@ -69,25 +116,31 @@ Before you start, clean the obvious without spending a credit:
 At the time of writing, Emelia bills the verifier **0.25 credit per address checked**,
 so 1 credit covers 4 addresses. Unlike the finders, this is charged whatever the
 answer: a verification that comes back invalid costs the same as one that comes back
-valid. That is the whole reason you clean the list before you verify it, not after.
-Confirm the current rate on your plan page before a large run.
+valid. That is the whole reason you clean the list before you verify it, not after,
+and the reason the work list excludes what the finder already proved.
 
 Print this and stop:
 
 ```
 Verification on outreach/leads.csv
 
-  Rows with an address        341
-  Malformed, dropped free       7
-  Duplicates, dropped free     12
-  Role mailboxes               19   keep them? they verify valid and rarely reply
-  To verify                   303
+  Rows with an address                 341
+  From Emelia's finder, valid          168   already verified, not re-checked
+  Verified in the last 30 days          12   still fresh, not re-checked
+  Malformed or duplicate, dropped free  12
+  To verify (addresses you brought)    126   including 11 role mailboxes
+  Flagged risky by the finder           23   verify these too? (0.25 each)
 
   Cost: 0.25 credit per address, charged whatever the answer.
-  Total 75.75 credits. Your balance: 1,009 credits.
+  126 addresses plus about 40 catch-all controls = 41.5 credits.
+  Add the 23 risky rows: 47.25 credits. Your balance: 1,009 credits.
 
-Run it? (yes / no / verify without the role mailboxes)
+Run it? (yes / yes with the risky rows / no / verify without the role mailboxes)
 ```
+
+Two lines of that quote matter more than the rest: the 168 rows you are **not**
+paying to check, and the reason. Say it out loud, because the reflex of verifying
+everything is exactly what this skill exists to break.
 
 ### 2. One verification
 
@@ -128,15 +181,19 @@ buckets you actually act on:
 
 | Bucket | How you get it | What it means | What you do |
 |--------|----------------|---------------|-------------|
-| **Valid** | `qualification: "valid"` on a domain that is not catch-all | The mailbox exists and accepts mail | **Send.** This is your sending list. |
+| **Valid** | `qualification: "valid"` on a domain that is not catch-all, from the verifier or from the finder | The mailbox exists and accepts mail | **Send.** This is your sending list. |
 | **Invalid** | `qualification: "invalid"` | The mailbox does not exist or the domain does not accept mail | **Drop.** Never send. Never "try it anyway to see". This is exactly what a hard bounce is. |
-| **Catch-all or risky** | `qualification: "valid"` on a domain that answers yes to everything, or `qualification: "risky"` from the finder | Unproven. It may be a real mailbox, it may be a black hole that accepts then bounces later | **Hold.** Send in a separate small batch, described below. |
+| **Catch-all or risky** | `qualification: "valid"` on a domain that answers yes to everything, or `qualification: "risky"` from the finder and never verified | Unproven. It may be a real mailbox, it may be a black hole that accepts then bounces later | **Hold.** Send in a separate small batch, described below. |
 | **Unknown** | `status: "error"`, a timeout, or a server that refused to answer | No verdict | Retry once, at least an hour later. Still nothing: treat it as catch-all, or drop it if you are being careful. |
 
 Two rules that are not negotiable. Invalid never gets sent: not on the first step,
 not on a follow-up, not "because it is a big account". And a bucket is a decision,
 not a label to admire: every row leaves this skill with a `send_decision` of `send`,
 `hold` or `drop`.
+
+A row that arrives already `valid` from the finder lands in the first bucket without
+a call and without a credit. Give it `email_verified_at` equal to its find date and
+`verification_source: finder`, so the freshness table above can act on it later.
 
 ### 4. The catch-all problem, honestly
 
@@ -157,9 +214,10 @@ domain, at a cost of one extra verification:
 5. If the control comes back `invalid`, the domain answers honestly, so a `valid` on
    that domain means the mailbox really exists.
 
-Only test domains where you have at least one address you intend to send to. On 300
-addresses over 180 domains this adds about 45 credits, which is cheap for knowing
-which half of your "valid" rows are real.
+Only test domains holding an address **you are verifying**. Domains that only carry
+finder results do not need a control: you are not deciding those rows here, the
+finder already did. On 126 addresses over 40 domains this adds about 10 credits,
+which is cheap for knowing which of your "valid" rows are real.
 
 **What to do with catch-all rows.** They are not worthless, they are unproven:
 
@@ -172,7 +230,8 @@ which half of your "valid" rows are real.
 
 ### 5. The threshold that decides whether you send at all
 
-Compute the projected hard bounce rate before the campaign starts:
+Compute the projected hard bounce rate before the campaign starts, over the whole
+sending list, finder rows included:
 
 ```
 projected bounce rate = (invalid + unknown) / (rows you are about to send to)
@@ -190,8 +249,8 @@ Rules of thumb, widely used across senders rather than an Emelia measurement:
 Why it matters: mailbox providers read bounces as a signal that you do not know who
 you are writing to, which is the profile of a spammer. The penalty lands on your
 domain and your mailboxes, not on the campaign, and it takes weeks of clean sending
-to undo. The credits saved by skipping verification are not worth a week of a burnt
-domain.
+to undo. The credits saved by skipping a **needed** verification are not worth a week
+of a burnt domain. The credits spent on an unneeded one are simply gone.
 
 Watch one neighbouring number at the same time, published by Google for bulk senders
 since 2024: keep the spam complaint rate under 0.3%, and aim under 0.1%. Complaints
@@ -205,36 +264,39 @@ not a warning. Say what would happen, and offer the proven subset instead.
 
 There is no bulk endpoint. Bulk means the single verification repeated.
 
-1. Sort by domain. Verify one address per domain first, plus its control address.
+1. Build the work list from the rule in Inputs. Print how many rows it excluded and
+   why before the first call.
+2. Sort by domain. Verify one address per domain first, plus its control address.
    Domains that turn out to be catch-all can then be decided in one move instead of
    row by row.
-2. Run one verification at a time, or at most five in parallel. Verifications are
+3. Run one verification at a time, or at most five in parallel. Verifications are
    fast, but your plan's ceiling is 100 requests per minute on Start, 300 on Grow,
    1,000 on Scale, and 30 with no subscription, and each verification is at least two
    requests.
-3. Write each verdict to `outreach/enrichment.json` as it arrives. You are paying per
+4. Write each verdict to `outreach/enrichment.json` as it arrives. You are paying per
    answer, so never lose one.
-4. Progress line every 50 rows: verified, valid, invalid, catch-all, unknown, credits
+5. Progress line every 50 rows: verified, valid, invalid, catch-all, unknown, credits
    spent.
-5. On HTTP 402 or a credit error, stop and report the resume point. On 429, wait 60
+6. On HTTP 402 or a credit error, stop and report the resume point. On 429, wait 60
    seconds and resume from the same row.
-6. At the end, recompute the projected bounce rate and apply the table in step 5
-   before you say the list is ready.
+7. At the end, recompute the projected bounce rate over the whole sending list and
+   apply the table in step 5 before you say the list is ready.
 
-Record the verification date on every row. A verdict older than 60 to 90 days should
-be treated as stale and checked again before a new campaign.
+Record the verification date on every row, including the rows you did not pay for.
+That date is what the freshness table reads next quarter.
 
 ## Output
 
-`outreach/leads.csv` keeps every original column and gains five:
+`outreach/leads.csv` keeps every original column and gains six:
 
 ```csv
-first_name,last_name,company_name,email,source,email_verification,email_domain_type,email_verified_at,send_decision,verification_note
-Marie,Dupont,Emelia,marie@emelia.io,finder,valid,standard,2026-09-08,send,
-Paul,Martin,Emelia,paul@emelia.io,finder,invalid,standard,2026-09-08,drop,mailbox does not exist
-Sofia,Neri,Kotive,sofia.neri@kotive.fr,finder,valid,catch_all,2026-09-08,hold,domain accepts every address
-Luc,Bernard,Vantia,contact@vantia.fr,csv,valid,standard,2026-09-08,hold,role mailbox
-Ana,Costa,Delor,ana@delor.pt,csv,unknown,standard,2026-09-08,drop,server did not answer twice
+first_name,last_name,company_name,email,email_source,email_verification,verification_source,email_domain_type,email_verified_at,send_decision,verification_note
+Marie,Dupont,Emelia,marie@emelia.io,finder,valid,finder,standard,2026-09-08,send,returned verified by the finder, not re-checked
+Paul,Martin,Kavia,p.martin@kavia.fr,csv,invalid,verifier,standard,2026-09-09,drop,mailbox does not exist
+Sofia,Neri,Kotive,sofia.neri@kotive.fr,csv,valid,verifier,catch_all,2026-09-09,hold,domain accepts every address
+Luc,Bernard,Vantia,contact@vantia.fr,csv,valid,verifier,standard,2026-09-09,hold,role mailbox
+Ana,Costa,Delor,ana@delor.pt,csv,unknown,verifier,standard,2026-09-09,drop,server did not answer twice
+Tom,Weiss,Sorel,t.weiss@sorel.com,finder,valid,verifier,standard,2026-09-09,send,flagged risky by the finder then verified valid
 ```
 
 `outreach/enrichment.json`, the slice this skill owns:
@@ -242,45 +304,54 @@ Ana,Costa,Delor,ana@delor.pt,csv,unknown,standard,2026-09-08,drop,server did not
 ```json
 {
   "run": {
-    "id": "2026-09-08-1210",
+    "id": "2026-09-09-1210",
     "step": "verify_email",
     "list": "outreach/leads.csv",
-    "started_at": "2026-09-08T12:10:03Z",
-    "finished_at": "2026-09-08T12:31:57Z"
+    "started_at": "2026-09-09T12:10:03Z",
+    "finished_at": "2026-09-09T12:24:11Z"
+  },
+  "scope": {
+    "rule": "verify what did not come from Emelia's finder",
+    "rows_with_address": 341,
+    "excluded_finder_valid": 168,
+    "excluded_verified_under_30_days": 12,
+    "excluded_malformed_or_duplicate": 12,
+    "checked_carried_in": 126,
+    "checked_risky_from_finder": 23,
+    "credits_not_spent_by_excluding_finder_rows": 42.0
   },
   "cost": {
     "rate_at_run_time": "0.25 credit per address, charged whatever the answer",
-    "addresses_checked": 303,
-    "control_addresses_checked": 47,
-    "credits_spent": 87.5,
+    "addresses_checked": 149,
+    "control_addresses_checked": 40,
+    "credits_spent": 47.25,
     "credits_before": 1009,
-    "credits_after": 921.5
+    "credits_after": 961.75
   },
   "counts": {
-    "rows_with_address": 341,
-    "dropped_before_spend": 38,
-    "verified": 303,
-    "valid": 214,
-    "invalid": 31,
-    "catch_all": 51,
-    "unknown": 7,
-    "role_mailboxes": 19
+    "valid": 98,
+    "invalid": 27,
+    "catch_all": 20,
+    "unknown": 4,
+    "role_mailboxes": 11
   },
   "domains": {
-    "tested": 47,
-    "catch_all": 12,
+    "tested": 40,
+    "catch_all": 9,
     "catch_all_list": ["kotive.fr", "grandgroupe.com"]
   },
-  "decisions": { "send": 214, "hold": 58, "drop": 69 },
+  "decisions": { "send": 267, "hold": 31, "drop": 43 },
   "bounce_projection": {
-    "if_you_send_only_valid": 0.0,
-    "if_you_send_valid_plus_catch_all": 0.019,
-    "if_you_send_everything": 0.125,
-    "verdict": "Send the 214 valid rows. The 51 catch-all rows go in a second batch of at most 20 a day. Do not send the 31 invalid rows."
+    "sending_list_rows": 267,
+    "if_you_send_the_send_group": 0.0,
+    "if_you_send_the_hold_group_too": 0.02,
+    "if_you_send_all_329_deliverable_rows": 0.094,
+    "verdict": "Send the 267 rows marked send. The 20 catch-all rows go in a second batch of at most 20 a day. Do not send the 27 invalid rows."
   },
   "notes": [
-    "12 of 47 domains are catch-all, which is why 51 rows are on hold.",
-    "7 addresses got no answer twice and were dropped rather than risked."
+    "168 finder rows were not re-verified. They came back with a verdict already, and re-checking them would have cost 42 credits for the same answer.",
+    "9 of 40 tested domains are catch-all, which is why 20 rows are on hold.",
+    "4 addresses got no answer twice and were dropped rather than risked."
   ]
 }
 ```
@@ -288,26 +359,32 @@ Ana,Costa,Delor,ana@delor.pt,csv,unknown,standard,2026-09-08,drop,server did not
 Then say it in words, with the decision at the end:
 
 ```
-303 addresses verified for 87.5 credits.
-  214 valid          send these
-   51 catch-all      unproven, second batch, 20 a day maximum
-   31 invalid        dropped, they would have bounced
-    7 unknown        no answer twice, dropped
+149 addresses verified for 47.25 credits. 168 more were left alone: the finder
+returned them verified, so re-checking them would have cost 42 credits for the
+same answer.
 
-Sending the 214 valid rows projects a bounce rate near zero. Sending everything
-projects 12.5%, which would damage the domain. The list is ready for the first
-number, not the second.
+  267 send        87 verified in this run, 180 already verified before it
+   31 hold        20 catch-all, 11 role mailboxes, second batch, 20 a day maximum
+   43 drop        27 invalid, 4 with no verdict after two tries, 12 malformed
+
+Sending the 267 projects a bounce rate near zero. Sending all 329 deliverable
+rows projects 9.4%, which would damage the domain. The list is ready for the
+first number, not the second.
 ```
 
 ## Checks before finishing
 
 - The cost was stated and the user said yes before the first paid call.
+- **No address that Emelia's finder returned as `valid` was sent to the verifier.**
+  Check this explicitly and report the count you skipped and the credits it saved.
+  This is the check people forget, and it is the expensive one.
 - Malformed rows and duplicates were removed **before** paying to verify them.
-- Every row that will be sent to has a `send_decision` and an `email_verified_at`.
-- Every domain holding a row you intend to send to was tested for catch-all, or the
+- Every row that will be sent to has a `send_decision` and an `email_verified_at`,
+  including rows whose verdict came from the finder.
+- Every domain holding a row **you verified here** was tested for catch-all, or the
   summary says which domains were not tested and why.
-- The projected bounce rate was computed and compared against the table, and the
-  verdict was stated to the user in words.
+- The projected bounce rate was computed over the whole sending list, not only over
+  the rows checked in this run, and the verdict was stated in words.
 - No row marked `invalid` is in the sending list. Check this explicitly, it is the
   one mistake with a lasting cost.
 - Catch-all rows are in a separate batch with a volume cap, not merged into the main
@@ -315,6 +392,16 @@ number, not the second.
 - `leads.csv` keeps every original column, in order, unchanged.
 
 ## Failure modes
+
+**You verified the finder's output.** The single most expensive mistake this skill
+can make, and it looks like diligence. Symptom: `addresses_checked` is close to the
+number of rows with an address, and almost everything comes back valid. Stop, do not
+re-run, and tell the user how many credits went on it so the next run does not repeat
+it.
+
+**No `email_source` column, so you cannot tell provenance.** Ask. Do not assume the
+addresses are the user's own just because the column is missing, and do not assume
+they came from the finder either. One question, then decide.
 
 **Everything comes back valid, control addresses included.** Either every domain is
 catch-all or you tested the control on the wrong domain. Recheck one by hand: a list
@@ -338,13 +425,19 @@ a verified list, and saying so is the point of this skill.
 it costs, and offer the proven subset. This is the one place where the right answer
 is no.
 
-**A list verified three months ago.** Stale. Between 5 and 10% of B2B addresses go
-bad every quarter as a rule of thumb, because people change jobs. Re-verify.
+**A carried-in address verifies `invalid` and the person is still worth reaching.**
+The address is dead, the lead is not. Send that row to `outreach-find-email` with the
+name and the company: 1 credit for a fresh address, and the finder returns it
+verified.
 
 ## Limits
 
 Verification proves that a mailbox accepts mail today. It does not prove the person
 still works there, that they will read it, or that they want to hear from you.
+
+It is not a second opinion on Emelia's finder. The finder returns a verdict with the
+address, and this skill has no better source than the one that produced it, so
+running it over finder output spends credits and changes no decision.
 
 It cannot prove anything on a catch-all domain. That is how those servers answer, not
 a shortcoming of Emelia, and no vendor gets around it. This skill tells you which

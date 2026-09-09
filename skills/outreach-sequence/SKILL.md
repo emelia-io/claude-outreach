@@ -1,6 +1,6 @@
 ---
 name: outreach-sequence
-description: "Designs the multichannel flow of a campaign: which steps exist in Emelia (email, LinkedIn visit, invitation, message, InMail, manual call task), how conditions and branches work (invitation accepted, email opened, link clicked, reply received, unsubscribed, task done), the delays that work and why, a clean A/B test with a sample size that makes the result mean something, and the conditions that stop a contact or stop the campaign. Produces outreach/campaign.json, the spec that outreach-campaign turns into a real campaign. Triggers on: sequence, flow, cadence, steps, multichannel, multicanal, delays, wait, condition, branch, if accepted, A/B test, split test, variant, sample size, stop condition, stop the sequence, campaign design, campaign structure, LinkedIn plus email."
+description: "Designs the multichannel flow of a campaign: which steps exist in Emelia (email, LinkedIn visit, invitation, message, InMail, manual call task), how conditions and branches work (invitation accepted, email opened, link clicked, reply received, unsubscribed, task done), the delays that work and why, a clean A/B test with a sample size that makes the result mean something, what goes in the body of an email step (the message or its custom variable, then the signature, then a real unsubscribe link from step 2 on), and the conditions that stop a contact or stop the campaign. Produces outreach/campaign.json, the spec that outreach-campaign turns into a real campaign. Triggers on: sequence, flow, cadence, steps, multichannel, multicanal, delays, wait, condition, branch, if accepted, A/B test, split test, variant, variants, sample size, stop condition, stop the sequence, campaign design, campaign structure, LinkedIn plus email, unsubscribe link, opt out, signature, step body."
 license: MIT
 metadata:
   author: Emelia
@@ -53,7 +53,7 @@ These are Emelia's real step types. Use these exact values in `campaign.json`.
 | `stepType` | Channel | Needs | Notes |
 |---|---|---|---|
 | `START` | none | nothing | The entry point, always the root, `delay` 0 |
-| `EMAIL` | email | an email identity, `versions[].subject` and `versions[].message` | Leave the subject empty to stay in the thread: Emelia reuses the last subject, prefixes it with `Re: `, and quotes the history underneath |
+| `EMAIL` | email | an email identity, `versions[].subject` and `versions[].message` | `message` is the whole body, assembled as in section 3. Leave the subject empty to stay in the thread: Emelia reuses the last subject, prefixes it with `Re: `, and quotes the history underneath |
 | `VISIT` | LinkedIn | a LinkedIn identity | A profile view. Costs nothing, notifies the prospect, warms an invitation |
 | `CONNECTION` | LinkedIn | a LinkedIn identity | The invitation. `versions[].message` is the note, and an empty note usually gets accepted more often than a pitched one |
 | `MESSAGE` | LinkedIn | an accepted connection | The direct message. Useless before an acceptance |
@@ -116,7 +116,7 @@ recorded open does not mean a human read anything, and a contact who never saw y
 email will take the "opened" branch. Branch on `CLICKED`, on a reply, on `ACCEPTED`, or
 on a contact field. This is also why `trackOpens` is set to `false` in the schedule
 below: an inflated open rate is worse than no open rate, because it hides the truth
-from `outreach-analyze`.
+from `outreach-audit`.
 
 **Branches never rejoin.** The tree has no merge. Anything that must happen after both
 arms has to be written twice, once in each arm. Keep branches short for that reason.
@@ -131,7 +131,42 @@ Branches worth building, in order of usefulness:
    from it bounce.
 5. Icebreaker empty or not, when the copy has an opener that only works with one.
 
-### 3. Delays that work, and why
+### 3. What goes in the body of an email step
+
+`versions[].message` is the whole body of that email, and it is three blocks separated by
+a blank line, in this order. [outreach-write](../outreach-write/SKILL.md) section 10 has
+the detail and the reasoning, this is the part the flow has to get right.
+
+1. **The copy.** Either the written text (Mode B) or the custom variable that holds the
+   message written for that contact (Mode A, usually `{{message}}`, and nothing else
+   around it).
+2. **`{{signature}}`**, on its own line. Lowercase only: `{{Signature}}` silently renders
+   nothing. It pulls the signature of the identity that sends, so the same step signs
+   correctly from every mailbox you attach.
+3. **The opt out link**, from step 2 on, as a real anchor and never a bare variable:
+
+```html
+<p><a href="{{unsubscribe_link}}">Unsubscribe</a></p>
+```
+
+Four flow level consequences:
+
+- **Step 1 carries no opt out link, every later email step does.** That is the default in
+  this repository. The reasoning is in [outreach-write](../outreach-write/SKILL.md)
+  section 10, along with what it costs and how to override it with `Opt-out: every step`.
+  Record the choice in `campaign.json` under `opt_out` so `outreach-campaign` builds what
+  you decided rather than what it assumes.
+- **The opt out link is exempt from `trackLinks`.** Every other `href` is rewritten as a
+  redirect. This one keeps its own URL, so it does not spend the one link a step is
+  allowed and it does not look like a redirect to a filter.
+- **`{{unsubscribe_link}}` is what sets the `List-Unsubscribe` header**, per step. A step
+  without the variable goes out without the header, which is exactly what the step 1 rule
+  means in practice. Say that to the user rather than letting them find out.
+- **Every A/B version of a step needs all three blocks.** Versions are separate bodies:
+  a signature or an opt out link added to version A only is a bug you will read as a
+  result.
+
+### 4. Delays that work, and why
 
 | Between | Delay | Why |
 |---|---|---|
@@ -163,7 +198,7 @@ Schedule fields and their defaults in Emelia, so you know what you are changing:
 | `trackLinks` | true | Leave on if you need click data, and accept that your links become redirects |
 | `excludeAlreadyMessaged` | off | Turn it on whenever the list overlaps a previous campaign |
 | `ignoreAutoReplies` | false | Turn it on, otherwise every out of office counts as a reply and stops the contact |
-| `eventToStop` | empty | See section 5 |
+| `eventToStop` | empty | See section 6 |
 
 On LinkedIn volume: keep new invitations well under the platform's weekly ceiling. A
 widely used rule of thumb is around 100 invitations per week on an established account,
@@ -171,16 +206,28 @@ and far less on a new one, so 15 to 20 a day established and 5 to 10 a day on a 
 account. That is a rule of thumb, not a documented limit, and the cost of being wrong
 is the account.
 
-### 4. A clean A/B test
+### 5. A clean A/B test
 
 **The mechanism.** A message step holds `versions`, an array. Each version has its own
 `_id`, `subject`, `message` and `disabled` flag. Emelia splits the contacts across the
 enabled versions, and the activity feed accepts a `versionId` filter, so results are
 attributable per version. Spintax is not: do not confuse the two.
 
+**Test approaches, not synonyms.** Two versions that say the same thing in different
+words cost a full send and teach you nothing. A variant is worth running when a win
+changes what you write next: a different angle, a different promise, a different ask, a
+different kind of proof. The table of what to vary, and what a win in each case actually
+tells you, is in [outreach-write](../outreach-write/SKILL.md) section 1, under "Mode B".
+Write both versions there, and bring them here as `versions[]`.
+
 **One variable at a time.** If A and B differ in the subject and the body, a win tells
 you nothing you can reuse. Test in this order, because this is the order of effect
 size: the angle, then the ask, then the proof, then the subject, then the send time.
+
+**In Mode A there is no A/B test on the body.** Every contact gets a different message,
+so there is nothing to hold constant and nothing to attribute. You can still test the
+subject line, the delays or the channel mix. Say that rather than declaring a test that
+cannot be read.
 
 **Sample size, so the result means something.** These are the contacts needed per
 version to detect a difference at the usual 95% confidence and 80% power. They come
@@ -211,7 +258,7 @@ gap produces a "winner" by chance often enough that the habit is worse than not 
 
 **The metric is replies, then positive replies.** Not opens, for the Apple reason above.
 
-### 5. Stop conditions
+### 6. Stop conditions
 
 Two layers. The first is Emelia's, in `schedule.eventToStop`: the events that take a
 contact out of the campaign. A sane default for email plus LinkedIn is
@@ -219,7 +266,7 @@ contact out of the campaign. A sane default for email plus LinkedIn is
 when a click means a human takes over. Never add `OPENED`.
 
 The second layer is yours, and it stops the campaign rather than a contact. Write these
-into `stop_rules` and check them in `outreach-analyze`:
+into `stop_rules` and check them in `outreach-audit`:
 
 | Signal | Threshold | What you do |
 |---|---|---|
@@ -229,7 +276,7 @@ into `stop_rules` and check them in `outreach-analyze`:
 | Spam complaints | any | Stop. This is the domain, not the campaign |
 | A step producing more unsubscribes than replies | any | Cut that step |
 
-### 6. Write the file, then hand over the build sheet
+### 7. Write the file, then hand over the build sheet
 
 Write `outreach/campaign.json`, then print the step tree as an indented list in the
 conversation, with the delays, so the user can build it in the app in one pass. Say the
@@ -254,6 +301,8 @@ repository's, and carry the decisions the platform does not store.
   "list_source": "outreach/leads.csv",
   "channels": ["email", "linkedin", "call"],
   "goal": { "metric": "replies", "target_rate": 0.05, "contacts": 1000 },
+  "copy_mode": "B",
+  "opt_out": { "placement": "from_step_2", "wording": "Unsubscribe from these emails" },
   "identities": ["niels@emelia.io", "linkedin:niels-mathieu"],
   "recipients": {
     "list_name": "FR SaaS CTOs Q4",
@@ -285,8 +334,8 @@ repository's, and carry the decisions the platform does not store.
       "identities": ["niels@emelia.io"],
       "delay": { "amount": 0, "unit": "DAYS" },
       "versions": [
-        { "_id": "v-a", "subject": "status page vs reality", "message": "sequence.md step 1, variant A", "disabled": false },
-        { "_id": "v-b", "subject": "status page vs reality", "message": "sequence.md step 1, variant B", "disabled": false }
+        { "_id": "v-a", "subject": "status page vs reality", "message": "sequence.md step 1, variant A, ends with {{signature}}, no opt out link", "disabled": false },
+        { "_id": "v-b", "subject": "status page vs reality", "message": "sequence.md step 1, variant B, ends with {{signature}}, no opt out link", "disabled": false }
       ],
       "next": {
         "_id": "s2-visit",
@@ -317,13 +366,13 @@ repository's, and carry the decisions the platform does not store.
               "stepType": "EMAIL",
               "identities": ["niels@emelia.io"],
               "delay": { "amount": 3, "unit": "DAYS" },
-              "versions": [{ "_id": "v-s2", "subject": "", "message": "sequence.md step 2" }],
+              "versions": [{ "_id": "v-s2", "subject": "", "message": "sequence.md step 2, then {{signature}}, then the opt out anchor" }],
               "next": {
                 "_id": "s7-email3",
                 "stepType": "EMAIL",
                 "identities": ["niels@emelia.io"],
                 "delay": { "amount": 5, "unit": "DAYS" },
-                "versions": [{ "_id": "v-s3", "subject": "who gets paged", "message": "sequence.md step 3" }],
+                "versions": [{ "_id": "v-s3", "subject": "who gets paged", "message": "sequence.md step 3, then {{signature}}, then the opt out anchor" }],
                 "next": {
                   "_id": "s8-clicked",
                   "stepType": "CONDITION",
@@ -342,7 +391,7 @@ repository's, and carry the decisions the platform does not store.
                     "stepType": "EMAIL",
                     "identities": ["niels@emelia.io"],
                     "delay": { "amount": 7, "unit": "DAYS" },
-                    "versions": [{ "_id": "v-s4", "subject": "", "message": "sequence.md step 4" }],
+                    "versions": [{ "_id": "v-s4", "subject": "", "message": "sequence.md step 4, then {{signature}}, then the opt out anchor" }],
                     "next": {
                       "_id": "s11-end",
                       "stepType": "END_OF_CAMPAIGN",
@@ -396,6 +445,13 @@ handle a branch, since branches never rejoin.
   `yes` and a `no`.
 - Every message step has at least one version with a non-empty `message`, and every
   `EMAIL` step that starts a new thread has a subject.
+- Every version of every `EMAIL` step ends with `{{signature}}`, lowercase, and every
+  version of the same step carries the same blocks as its sibling.
+- The opt out link matches `opt_out.placement`: absent from the first email step and
+  present on every later one by default, or present everywhere if that was the choice.
+  It is an `<a href="{{unsubscribe_link}}">` with a short text, never a bare variable.
+- `python3 scripts/check-copy.py outreach/sequence.md outreach/leads.csv` exits 0 on the
+  copy this tree points at.
 - Every step's copy exists in `outreach/sequence.md`, and no step references copy that
   was never written.
 - The condition windows are deliberate, and you told the user how long each one parks a
@@ -432,6 +488,15 @@ pushing anything.
 **Opens look great and there are no replies.** If `trackOpens` was left on, part of that
 number is Apple pre-fetching images. Turn it off, and read the reply rate instead.
 
+**One A/B version has a footer and the other does not.** Versions are separate bodies, so
+a block added to one is missing from the other. Whatever wins, you cannot say why. Diff
+the two versions block by block before the launch.
+
+**Recipients complain there is no way out.** The opt out link is on steps 2 and later by
+design, so a contact who only ever received step 1 never saw one. That is the accepted
+cost of the rule, and the reply path still works. If the user is not comfortable with it,
+switch to `Opt-out: every step` rather than arguing.
+
 ## Limits
 
 This skill does not create anything in Emelia and does not send anything: it writes a
@@ -440,4 +505,4 @@ confirmation. It cannot build the step tree through the API, because that endpoi
 not exist, and it will say so rather than pretending. It does not know your mailbox
 capacity: the daily numbers here are proposals that `outreach-deliverability` has the
 final word on. The delay and volume figures are rules of thumb from common practice, not
-measurements from your account, and `outreach-analyze` is what replaces them with yours.
+measurements from your account, and `outreach-audit` is what replaces them with yours.

@@ -29,14 +29,13 @@ No command at all is fine: `/outreach` asks what you want to do.
 | [`sequence`](#outreach-sequence-spec) | `campaign.json` | no | no |
 | [`deliverability`](#outreach-deliverability) | `deliverability.md` | no | no |
 | [`campaign`](#outreach-campaign-spec) | `campaign.json` | no, sending does | yes, always |
-| [`inbox`](#outreach-inbox) | `inbox.md` | no | yes, before any reply leaves |
-| [`analyze`](#outreach-analyze-campaign) | `report.md` | no | no |
-| [`compliance`](#outreach-compliance-market) | `compliance.md` | no | no |
+| [`inbox`](#outreach-replies) | `inbox.md` | no | yes, before any reply leaves |
+| [`audit`](#outreach-audit-campaign) | `audit.md` | no | no |
 
 The six files named in the dispatcher contract (`icp.json`, `leads.csv`,
 `enrichment.json`, `sequence.md`, `campaign.json`, `report.md`) are the ones every
 step agrees on. The others (`leads-dropped.csv`, `deliverability.md`, `inbox.md`,
-`compliance.md`) sit next to them in the same directory and are safe to delete.
+`replies.md`) sit next to them in the same directory and are safe to delete.
 
 ---
 
@@ -316,7 +315,7 @@ campaign on their own, and that is the part this command automates.
 /outreach campaign "Q4 SaaS founders"
 ```
 
-## `/outreach inbox`
+## `/outreach replies`
 
 Reads the replies, sorts them (interested, meeting, not now, wrong person, out of
 office, unsubscribe, angry), drafts an answer for each, and leaves them for you.
@@ -325,55 +324,46 @@ Unsubscribes are processed straight away, because that one is not optional.
 - **Argument** none, or a campaign name to restrict the triage.
 - **Reads** `outreach/campaign.json`, the campaign activity feed, `EMELIA_API_KEY`
 - **Writes** `outreach/inbox.md` with one block per reply and its draft
-- **Skill** [`outreach-inbox`](../skills/outreach-inbox/SKILL.md)
+- **Skill** [`outreach-replies`](../skills/outreach-replies/SKILL.md)
 - **Credits** none
 - **Stops** yes. Nothing is sent without your explicit yes, per message.
 
 ```
-/outreach inbox
+/outreach replies
 ```
 
-## `/outreach analyze <campaign>`
+## `/outreach audit <campaign>`
 
-Reads the numbers per step and per variant on stated denominators, compares them
-against honest benchmarks, and tells you which of the three problems you have: the
-list, the deliverability, or the offer. One recommendation, not a dashboard.
+Audits the **content** of the emails, step by step, and says what is costing you
+replies. Nine checks: one ask per email, the links that dilute it, whether the
+question can be answered with a thumb, length measured in rendered lines on a phone,
+attachments, images, HTML weight, the signature, spam trigger words and hollow jargon.
+A verdict per step (REWRITE, FIX or SHIP), a verdict for the sequence, and one thing
+to fix first.
 
-- **Argument** `<campaign>`: a campaign name or id. Defaults to the one in
+It is not a statistics report. Open and click rates are optional, come last, and are
+skipped entirely when tracking is off, because your emails can be wrong either way.
+
+- **Argument** `<campaign>`: a campaign name or id. With no argument it reads
+  `outreach/sequence.md`, then falls back to the campaign in
   `outreach/campaign.json`.
-- **Reads** `outreach/campaign.json`, the campaign statistics and activity feed,
-  `EMELIA_API_KEY`
-- **Writes** `outreach/report.md`
-- **Skill** [`outreach-analyze`](../skills/outreach-analyze/SKILL.md)
-- **Agent** [`outreach-analyst`](../agents/outreach-analyst.md), one per campaign
-- **Credits** none
+- **Reads** `outreach/sequence.md`, or `GET /advanced/campaigns/{id}` saved as
+  `outreach/campaign-raw.json`, plus `EMELIA_API_KEY` for the live path
+- **Writes** `outreach/audit.md`
+- **Skill** [`outreach-audit`](../skills/outreach-audit/SKILL.md)
+- **Script** [`scripts/audit-emails.py`](../scripts/audit-emails.py), which does the
+  counting and exits 1 on a blocking finding, so it works as a launch gate
+- **Credits** none. It sends nothing and spends nothing, so it is safe on anything.
 - **Stops** no
 
 ```
-/outreach analyze "Q4 SaaS founders"
-/outreach analyze
+/outreach audit                      # audits outreach/sequence.md
+/outreach audit "Q4 SaaS founders"   # pulls the live campaign and audits that
 ```
 
-## `/outreach compliance <market>`
-
-What you may and may not do in a given market: the legal basis for B2B cold
-outreach, what has to be in the message, how long you may keep the data, and what
-changes when you target consumers or a regulated profession. It is a briefing, not
-legal advice, and it says so.
-
-- **Argument** `<market>`: a country or region. `fr`, `eu`, `us`, `uk`, `ca`, `de`.
-- **Reads** `outreach/icp.json` for the geography, if there is one.
-- **Writes** `outreach/compliance.md`
-- **Skill** [`outreach-compliance`](../skills/outreach-compliance/SKILL.md)
-- **Credits** none
-- **Stops** no
-
-```
-/outreach compliance fr
-/outreach compliance "France and Germany"
-```
-
----
+The signature is the one thing it cannot see on its own: `{{signature}}` is stored in
+Emelia, not in the campaign steps. Paste it, or send yourself a test email with
+`POST /advanced/campaigns/{id}/test-email` and read what arrives.
 
 ## Running one step again
 
@@ -387,7 +377,6 @@ and offers a suffixed name (`leads-q4.csv`) instead.
 ## Running without keys
 
 With no `EMELIA_API_KEY`, everything that does not touch Emelia still works: ICP,
-sourcing from a CSV, filtering, copy, sequence design, compliance. The steps that
 need Emelia run in dry run: they produce their file, state what they would have
 called and what it would have cost, and change nothing. See
 [SETUP.md](SETUP.md) for the keys and [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for

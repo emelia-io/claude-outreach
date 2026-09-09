@@ -366,6 +366,24 @@ matches the rows you loaded. A campaign is capped at 15,000 recipients.
 
 ### 7. Pre-flight, all of it, before you ask anything
 
+Run the mechanical half first, against the campaign as Emelia now holds it, not against
+your files:
+
+```bash
+python3 scripts/preflight-campaign.py <campaignId>
+```
+
+It reads the campaign back, walks the tree including the branches, and checks the six
+things that a 200 response will not tell you: an identity is attached, a list is attached
+and holds contacts, no body is empty or missing its `<p>` paragraphs, the first email has
+a subject, no LinkedIn step carries several versions in the belief that it is an A/B
+test, and every `{{variable}}` any step uses resolves on the contacts of the attached
+lists. That last one is the check that matters: it samples the list and tells you a
+variable is empty on 25 of 99 contacts, which is 25 emails with a hole in them and no
+error anywhere. It exits non zero when something blocks.
+
+Then the half a script cannot do:
+
 | Check | How | Pass condition |
 |---|---|---|
 | Deliverability | `## Verdict` in `outreach/deliverability.md` | READY, or READY WITH LIMITS and the cadence set to that cap |

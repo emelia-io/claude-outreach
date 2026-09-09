@@ -27,14 +27,21 @@ import sys
 # ---------------------------------------------------------------------------
 CHARS_PER_LINE = 45
 
+# Reference email, measured from the Emelia editor: 74 chars, then 148, then 74.
+# Body 300 chars, 47 words, three paragraphs, the last one a question.
 # step number -> (min body chars, target max body chars, hard cap)
 LENGTH = {
-    1: (150, 280, 350),
+    1: (220, 300, 380),
     2: (90, 220, 280),
     3: (150, 300, 380),
     4: (80, 200, 260),
 }
 LENGTH_DEFAULT = (90, 260, 340)
+
+# The reference shape: three paragraphs, medium, long, short, the last one an ask.
+SHAPE_PARAGRAPHS = (2, 4)      # fewer than 2 is a block of text, more than 4 is a page
+SHAPE_LONGEST_RATIO = 3.0      # the long paragraph should not dwarf the others
+SHAPE_LAST_MAX = 140           # the closing paragraph carries the ask and stays short
 
 # what a variable is worth when we estimate the rendered length
 VAR_SENTENCE = 65   # an icebreaker variable renders as a whole sentence
@@ -364,8 +371,25 @@ def audit_step(step: dict) -> list[tuple]:
     else:
         f.append(("OK", "length", f"{m['chars']} characters, {m['words']} words, "
                                   f"about {m['lines']} lines on a phone"))
-    if m["paragraphs"] > 4:
-        f.append(("WARN", "length", f"{m['paragraphs']} paragraphs, three is the shape"))
+    # the shape, which matters as much as the total: medium, long, short with the ask
+    paras = [p.strip() for p in re.split(r"\n\s*\n", body) if p.strip()]
+    lo_p, hi_p = SHAPE_PARAGRAPHS
+    if len(paras) > hi_p:
+        f.append(("WARN", "length", f"{len(paras)} paragraphs, the reference shape is three: "
+                                    "one medium, one long, one short that carries the ask"))
+    elif len(paras) < lo_p and m["chars"] > 120:
+        f.append(("WARN", "length", "one block of text, break it into a medium paragraph, "
+                                    "a long one, and a short one with the ask"))
+    if len(paras) >= 2:
+        lens = [len(x) for x in paras]
+        if min(lens) and max(lens) / min(lens) > SHAPE_LONGEST_RATIO:
+            f.append(("WARN", "length", f"one paragraph is {max(lens)} characters against "
+                                        f"{min(lens)} for the shortest, even them out"))
+        if len(paras[-1]) > SHAPE_LAST_MAX:
+            f.append(("WARN", "length", f"the closing paragraph is {len(paras[-1])} characters, "
+                                        "the ask lands better in one short line"))
+        elif paras[-1].rstrip().endswith("?"):
+            f.append(("OK", "length", "three parts and the ask closes on a question"))
     for s in sentences(body):
         if len(s.split()) > MAX_SENTENCE_WORDS:
             f.append(("WARN", "jargon", f"{len(s.split())} word sentence, the reader re-reads it: "

@@ -92,37 +92,50 @@ apps default to, a mixed case Latin character averages close to 8 points wide. T
 phone in Gmail the honest range is 40 to 50.
 
 The shape to aim for in one email is three lines: one medium, one long, then one medium
-or short. In rendered lines that is roughly 1.5, then 2.5, then 1 to 1.5. At 45
-characters a line: 55 to 75, then 95 to 135, then 30 to 65.
+or short. That shape is fixed by a reference email, measured rather than guessed:
 
-So the body of one email is **180 to 280 characters**. At the 6.1 characters per word
-English business prose averages, that is **30 to 46 words**. Rendered, about 6 lines of
-text plus the 2 blank lines between paragraphs, so 8 or 9, and with the greeting and the
-sign-off around 11.
+```
+Hello {{firstName}}
+
+Lorem Ipsum is simply dummy text of the printing and typesetting industry.
+
+Lorem Ipsum is simply dummy text of the printing and typesetting industry.Lorem Ipsum is simply dummy text of the printing and typesetting industry.
+
+Lorem Ipsum is simply dummy text of the printing and typesetting industry?
+
+{{signature}}
+```
+
+Measured: **74 characters, then 148, then 74**. The long paragraph is exactly twice the
+medium one, and the last one is a question. Body total **300 characters, 47 words, three
+paragraphs**. At 45 characters per rendered line on a phone that is 7 lines of text, 9
+with the blank lines between paragraphs, 11 with the greeting and the sign-off.
 
 That number is the point. A phone shows roughly 18 to 22 lines of an email under the
 header block. Eleven lines means the whole message, ask included, is on screen before
 the reader moves a thumb. Past that the ask sits below the fold, and an ask below the
 fold is read after the decision has already been made.
 
-Step 1 is the tightest, because it is the one from a stranger:
+**The shape matters as much as the total.** Three paragraphs: one medium, one long,
+one short that carries the ask and ends in a question mark. Not five short paragraphs
+adding up to the same count, and not one block of 300 characters. Check the shape, not
+only the sum.
+
+Step 1 sits at the reference. The follow-ups are shorter, because they have less to
+establish and more to prove:
 
 | Step | Body characters | Words | Rendered lines | Hard cap |
 |---|---|---|---|---|
-| 1 | 150 to 280 | 25 to 46 | 4 to 7 | 350 characters |
+| 1 | 220 to 300 | 36 to 48 | 5 to 7 | 380 characters |
 | 2 | 90 to 220 | 15 to 36 | 3 to 5 | 280 characters |
-| 3 | 150 to 300 | 25 to 50 | 4 to 7 | 380 characters |
+| 3 | 150 to 300 | 25 to 48 | 4 to 7 | 380 characters |
 | 4, the break up | 80 to 200 | 13 to 33 | 2 to 5 | 260 characters |
 
 Over the hard cap is blocking. Between target and cap is a fix. Under the floor, check
 the email still says something: 40 characters is not discipline, it is an empty email.
 
-> **Pending: the reference screenshot.** The numbers above are arithmetic, not a
-> measurement. Niels is sending a screenshot that fixes the reference size. When it
-> arrives: measure the rendered body in it, set `CHARS_PER_LINE` and the `LENGTH` table
-> at the top of [`scripts/audit-emails.py`](../../scripts/audit-emails.py) to match,
-> update this section, delete this block. Everything is derived from that one number,
-> so it is a single edit in two places.
+The greeting line and `{{signature}}` are not counted: they are plumbing, and the
+unsubscribe anchor is not counted either.
 
 ### 4. The nine checks
 

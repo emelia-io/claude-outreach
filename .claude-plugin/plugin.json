@@ -1,6 +1,6 @@
 {
   "name": "claude-outreach",
-  "description": "Universal B2B outreach skill for Claude Code. Build the list, find and verify emails and mobiles, write the sequence, launch the campaign in Emelia, handle the replies, read the numbers.",
+  "description": "Universal B2B outreach skill for Claude Code. Sharpen the offer, build the list, find and verify emails and mobiles, write the sequence, launch the campaign in Emelia, handle the replies, audit what you send.",
   "version": "0.1.0",
   "author": {
     "name": "Emelia",

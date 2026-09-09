@@ -1,6 +1,6 @@
 ---
 name: outreach-write
-description: "Writes the copy of a cold outreach sequence: the angle, the subject lines, the opening line, the proof, the ask, the follow-ups and the break-up. Picks between one message written per person and pushed into a custom variable, and two A/B variants that test genuinely different approaches. Prices the generation before it starts, because a thousand per contact messages do not fit in a Claude Code subscription. Lays out the step body the way Emelia actually sends it: the message, then the signature variable, then a real unsubscribe link from step 2 on. Produces outreach/sequence.md, then runs mechanical checks on its own output (length, spam trigger words, links and images, variables that do not exist in leads.csv, missing signature, opt out in the wrong place, follow-ups that repeat the previous step) and refuses to hand over copy that fails them. Triggers on: write, copy, cold email copy, email copy, sequence copy, subject line, opener, icebreaker line, follow-up, follow up, relance, break-up email, CTA, call to action, spam words, rewrite my sequence, my emails get no replies, personalized message, personalised message, A/B variant, variants, unsubscribe link, opt out, signature, bulk generation, Anthropic API key, Claude Sonnet."
+description: "Writes the copy of a cold outreach sequence: the angle, the subject lines, the opening line, the proof, the ask, the follow-ups and the break-up. Picks between one message written per person and pushed into a custom variable, and two A/B variants that test genuinely different approaches. Prices the generation before it starts, because a thousand per contact messages do not fit in a Claude Code subscription. Holds two house prompts that write those per contact messages, one for email and a separate one for LinkedIn, where you do not sign, you end on a question, you drop the closing formula and you barely introduce yourself because the profile is one click away. Asks the four questions it needs first: the language, the formal or informal you for languages that make the distinction, the gender of the person signing because the grammar agrees in French and it is never guessed from a first name, and the rules for that language. Lays out the step body the way Emelia actually sends it: the message, then the signature variable, then a real unsubscribe link from step 2 on. Produces outreach/sequence.md, then runs mechanical checks on its own output (length, spam trigger words, links and images, variables that do not exist in leads.csv, missing signature, opt out in the wrong place, follow-ups that repeat the previous step) and refuses to hand over copy that fails them. Triggers on: write, copy, cold email copy, email copy, sequence copy, subject line, opener, icebreaker line, follow-up, follow up, relance, break-up email, CTA, call to action, spam words, rewrite my sequence, my emails get no replies, personalized message, personalised message, A/B variant, variants, unsubscribe link, opt out, signature, bulk generation, Anthropic API key, Claude Sonnet, per contact prompt, writing prompt, which language, write in French, write in German, tu or vous, vouvoiement, tutoiement, du or Sie, usted, gender agreement, feminine form, signer gender, language rules, LinkedIn message, LinkedIn copy, connection request, invitation note, connection note, InMail, DM, direct message, message LinkedIn, do not sign, end with a question, 300 characters."
 license: MIT
 metadata:
   author: Emelia
@@ -13,18 +13,21 @@ metadata:
 ## What this does
 
 Turns a target and an offer into the actual text of a 3 or 4 step outbound sequence,
-written around the prospect's problem rather than around your product. It decides first
-whether the campaign is one message per person or two A/B variants for everybody, says
-what generating it will cost, writes `outreach/sequence.md` in the shape Emelia sends,
-then runs a checker over that file and reports every finding. Copy with a blocking
-finding does not go to the launch step.
+written around the prospect's problem rather than around your product, on email, on
+LinkedIn, or on both with a different prompt for each. It decides first whether the
+campaign is one message per person or two A/B variants for everybody, says what
+generating it will cost, writes `outreach/sequence.md` in the shape Emelia sends, then
+runs a checker over that file and reports every finding. Copy with a blocking finding
+does not go to the launch step.
 
 ## When to use it
 
 Use it after the list exists and before the flow is designed
 ([outreach-sequence](../outreach-sequence/SKILL.md) needs approved copy to build the
 tree). Use it again when a running campaign gets opens and no replies, which is a copy
-problem, not a deliverability one.
+problem, not a deliverability one. Use it for LinkedIn as well as for email: the
+invitation note, the messages and the InMail are written here, with the prompt in
+section 1 under "Mode A on LinkedIn", not by adapting the email copy.
 
 Use a different skill when: you want per contact icebreakers at scale
 ([outreach-personalize](../outreach-personalize/SKILL.md)), the step tree, delays and
@@ -40,7 +43,11 @@ who replied (`outreach-replies`).
 | What the product does, in one sentence | the user | Ask. Do not invent a product |
 | One number you can defend | the user | Write without proof and say the sequence has no proof |
 | One customer you may name | the user | Use mechanism proof instead (section 6 below) |
-| Sender name, company, city | the user | Ask. A message with no identity behind it is not legal in most markets |
+| Sender name, company, city | the user | Ask. An email with no identity behind it is not legal in most markets. A LinkedIn message carries that identity in the profile, so it does not repeat it |
+| Which channels the steps use | `outreach/campaign.json`, or the user | Ask. Email and LinkedIn are written by different prompts, and a multichannel campaign needs both |
+| The language, one per country if the list spans several | question 1 in section 1 | Ask. Never default to English on a list that is not English speaking |
+| Formal or informal you, in languages that separate them | question 2 in section 1 | Ask, except in English. Default to the formal one and say that you did |
+| The gender of the person signing, in languages that agree | question 3 in section 1 | Ask, and say why in the same sentence. Never infer it from a first name |
 | A signature configured on the sending identity | the Emelia account | Ask the user to set one before the launch. `{{signature}}` renders nothing when there is none |
 | How many contacts will be written for | `outreach/leads.csv` | Ask. The count decides the mode and where the generation runs, see section 1 |
 
@@ -72,27 +79,249 @@ pipeline reads it.
 
 #### Mode A: the per contact writing prompt
 
-**Status: not filled in yet.** The house prompt Emelia uses to write these messages,
-with its own rules, is not in this repository. It belongs here, in this section, and
-nowhere else.
+This is the **email** prompt. The LinkedIn one is a different prompt with different
+rules, and it is two subsections below, under "Mode A on LinkedIn".
 
-```text
-PER CONTACT WRITING PROMPT
-(waiting on the prompt Emelia uses. Paste it here, unchanged, when it lands.)
+The prompt is in [references/per-contact-prompt.md](references/per-contact-prompt.md),
+reproduced word for word. It writes a **4 step sequence for one named contact**: a
+pattern breaking opener, a follow-up built on a story or an analogy, a value step that
+comes at the offer from an unusual angle, and a break-up that creates timing without
+inventing scarcity. It is deliberately creative, it forbids invented facts, and it
+returns the subject and the body of each of the four emails and nothing else.
+
+Use it unchanged. Do not translate it, shorten it, reorder its blocks or correct its
+English, and leave its two French sentences alone: they are house rules, not an
+oversight. Three placeholders get filled and a few lines get appended to its block 2.
+That is the entire adaptation surface.
+
+| Placeholder | Filled with | Source |
+|---|---|---|
+| `{variable}` | the language, named in English | question 1 below |
+| `{{PROSPECT}}` | one labelled block per contact | a row of `outreach/leads.csv` |
+| `{{COMPANY_INFO}}` | your offer, written once for the campaign | `outreach/icp.json`, plus the number and the customer name the user gave |
+
+The prospect block is built from `first_name`, `last_name`, `job_title`, `seniority`,
+`company_name`, `company_website`, `company_industry`, `company_headcount`, `city`,
+`country_code`, `linkedin_url`, `segment` and `signal`, plus `icebreaker` with its
+`icebreaker_source` and `icebreaker_date` when
+[outreach-personalize](../outreach-personalize/SKILL.md) has written them. An empty cell
+becomes a missing line, never `unknown`, and `email` and `phone` stay out of it. The
+company block comes from `offer.what`, `offer.problem`, `offer.proof`,
+`offer.price_point` and the segment's `why_different`, kept under about 150 words
+because the prompt handles a thin brief well and a pasted homepage badly. The line by
+line shape of both blocks, with a filled example, is in the reference, sections 3 and 4.
+
+##### Ask these four questions before you generate anything
+
+The prompt writes in one language, in one register, for one signer. Getting any of those
+wrong is not a style problem, it is a mistake in the first sentence of every email you
+send. Ask. Do not infer.
+
+**1. The language.** Always. If `outreach/icp.json` makes it obvious, state the
+assumption rather than asking blind, and still wait for the answer.
+
+> Which language should I write these emails in? If the list spans several countries I
+> can write one language per group: tell me which ones and I will route on `country_code`
+> in `outreach/leads.csv`.
+
+> Dans quelle langue est-ce que j'écris ces emails ? Si la liste couvre plusieurs pays,
+> je peux écrire une langue par groupe : dites-moi lesquelles, je répartis sur la colonne
+> `country_code` de `outreach/leads.csv`.
+
+Several languages means several runs: one language, one set of answers below, one
+generation, one sample of 20 read in that language.
+
+**2. The form of address.** Only for languages that make the distinction: French,
+German, Spanish, Portuguese, Italian, Dutch, Russian, Polish and the others in the table
+in the reference, section 6. **Never ask it in English**, where the question has no
+meaning and asking it only makes you look automated.
+
+> French separates "tu" and "vous". Which do you use with this segment? "Vous" is the
+> safe default in cold B2B, "tu" only if you already speak that way to these people.
+
+> Le français distingue le tutoiement et le vouvoiement. Lequel voulez-vous pour ce
+> segment ? Le vouvoiement est la valeur sûre en B2B à froid, le tutoiement seulement si
+> vous parlez déjà comme ça à ces gens.
+
+**3. The gender of the person signing.** Only for languages where what the sender says
+about themselves agrees: French, Italian, Spanish, Portuguese, Russian, Polish. Ask it
+even when it feels intrusive, explain why in the same breath, and **never infer it from
+a first name**. If the conversation already established it, do not ask twice.
+
+> One grammar question, and I would rather ask it than guess. In French, what the sender
+> says about themselves agrees: "je serais ravi" becomes "ravie" when a woman signs.
+> Which form should I use for the person signing these emails? I will not work it out
+> from a first name.
+
+> Une question de grammaire, que je préfère poser plutôt que deviner. En français, ce que
+> l'expéditeur dit de lui s'accorde : « je serais ravi » s'écrit « ravie » quand c'est une
+> femme qui signe. Quelle forme est-ce que j'utilise pour la personne qui signe ? Je ne le
+> déduis pas d'un prénom.
+
+The recipient's gender is a different problem, and the answer is not to ask: the list
+does not carry it reliably, so drop gendered salutations altogether. "Bonjour Marc"
+rather than "Cher Monsieur", "Guten Tag Marc Leroy" rather than "Herr Leroy".
+
+**4. The rules for that language.** Do not ask this one open. Read the lines for the
+chosen language out of the table in the reference, section 6, show them, and ask what to
+add.
+
+> For French I will add these rules to the prompt: [the lines from the table]. Anything
+> to add, or a house rule of your own?
+
+> Pour le français, j'ajoute ces règles au prompt : [les lignes du tableau]. Vous voulez
+> en ajouter, ou imposer une règle maison ?
+
+**What happens to the answers.** They become variables injected into the prompt: the
+language replaces `{variable}` on line 1, and the register, the signer's gender, the
+language rules and any house rule become lines appended to the end of block 2, "Style
+and Tone Requirements", in the same dash list as the rest. The order and a worked example
+are in the reference, section 5. Write the answers into the header of
+`outreach/sequence.md` as well (`Language:`, `Address:`, `Signer:`), because the second
+batch six weeks from now has to come out in the same voice.
+
+##### The prompt writes the body, Emelia adds the rest
+
+The prompt ends on "DON'T INCLUDE ANY VARIABLES OR SIGNATURES" and tells the model not to
+sign or invent a name. Section 10 of this skill says the step body is the message
+variable, then `{{signature}}`, then the opt out link from step 2 on. That is one rule
+seen from two ends, not a contradiction: the model produces the body alone, and Emelia
+assembles the email at send time.
+
+So a generated value carries no `{{...}}` of any kind, no "Best regards", no name, no
+company line, no unsubscribe link. It does carry its own greeting, spelled out in full
+("Bonjour Marc,"), because Mode A has no variable to fall back on. Two consequences to
+say out loud: a wrong first name is baked into the text and no fallback will save it, and
+a value that arrives with a sign off inside it is a "wrong" row in the sample gate, not
+something you tidy up by hand.
+
+The reverse mistake is as common: do not add a signature to the prompt to make the
+message "complete". `{{signature}}` renders the signature of whichever identity sends, and
+that is what lets the same 1,000 messages go out from three mailboxes and sign correctly.
+
+##### Length: 3 to 4 short paragraphs against 300 characters
+
+The prompt caps an email at "3-4 short paragraphs max". This repository measures the
+same thing in characters: 74, then 148, then 74. Three paragraphs, 300 characters of
+body, the last one a question carrying the ask. It was measured in the Emelia editor, it
+is explained in `outreach-audit` section 3, and it is what `scripts/audit-emails.py`
+enforces.
+
+The two agree, and the arithmetic is the useful part. Four paragraphs inside 300
+characters is about 75 characters each, which is one rendered line on a phone. "Short
+paragraph" therefore means one or two sentences of 12 to 20 words, and a fourth paragraph
+comes out of the same budget instead of being added on top of it. The greeting line is
+not counted, and there is no sign off to count.
+
+| Step | Body characters | Hard cap |
+|---|---|---|
+| 1 | 220 to 300 | 380 |
+| 2 | 90 to 220 | 280 |
+| 3 | 150 to 300 | 380 |
+| 4, the break up | 80 to 200 | 260 |
+
+**Measure it, do not eyeball it.** The carrier in `sequence.md` has nothing to measure, so
+write the rendered sample from
+[outreach-personalize](../outreach-personalize/SKILL.md) section 7 into
+`outreach/sample-rendered.md`, in the same `## Step N` and fenced body shape as
+`sequence.md`, and run the audit over that file:
+
+```bash
+python3 scripts/audit-emails.py outreach/sample-rendered.md
 ```
 
-Until it is here, do not improvise a long house prompt of your own and present it as the
-method. Do one of these two things, and say which one you did:
+**When it overshoots**, and it will, fix the generation and not the messages:
 
-1. Ask the user for the prompt they already use, run that, and store it with the run so
-   the next campaign reproduces the same voice.
-2. Fall back to Mode B, write two real variants, and tell the user that per contact
-   messages are available as soon as they supply their prompt.
+1. Add one line to the block 2 injection, with the numbers in it, and regenerate the
+   sample: `Keep each email within these limits, measured on the body without the
+   greeting: email 1 between 220 and 300 characters, email 2 between 90 and 220, email 3
+   between 150 and 300, email 4 between 80 and 200.`
+2. Still long? The creative opener is eating the budget. Move the proof paragraph into
+   step 2 and let step 1 carry the observation and the ask.
+3. One message over while the other nineteen are inside is a row, not a rule. Regenerate
+   that row.
+
+Never buy the length back by cutting the ask, and never by merging the paragraphs into
+two longer ones: the shape is checked as well as the total. A message over the hard cap
+does not ship, and at 1,000 rows nobody is going to edit them one by one, which is why a
+sample that overshoots is fixed at the prompt before the other 980 exist.
+
+##### What comes back, and where it goes
+
+Four objects in step order, each with a subject and a body, written into `subject_line`,
+`message`, `subject_line_2`, `message_2`, and so on to step 4. Steps 2 and 4 stay in the
+thread of the step before them, so their generated subjects are not used in Emelia. The
+JSON contract and the full column mapping are in the reference, section 7.
 
 The rest of this skill still applies to Mode A. The angle (section 2), the proof rules
-(section 6), the ask (section 7), the length ceiling (section 5) and the assembly rules
-(section 10) are constraints on whatever prompt is used, not alternatives to it. A per
-contact message that breaks them is still bad copy, it is just bad copy a thousand times.
+(section 6), the ask (section 7) and the assembly rules (section 10) are constraints on
+the output of that prompt, not alternatives to it. A per contact message that breaks them
+is still bad copy, it is just bad copy a thousand times.
+
+#### Mode A on LinkedIn: the message prompt
+
+There are two per contact prompts in this skill, and they are not the same prompt with a
+different word count. The email one is
+[references/per-contact-prompt.md](references/per-contact-prompt.md). The LinkedIn one is
+[references/linkedin-message-prompt.md](references/linkedin-message-prompt.md).
+
+| You are writing | Prompt | It produces |
+|---|---|---|
+| `EMAIL` steps | [per-contact-prompt.md](references/per-contact-prompt.md) | 4 emails, each with a subject and a body |
+| `CONNECTION`, `MESSAGE` and `INMAIL` steps | [linkedin-message-prompt.md](references/linkedin-message-prompt.md) | an invitation note, 3 messages, and an InMail when the flow has one |
+| A multichannel campaign | both, in the same run | the email columns and the `li_` columns on the same row |
+
+A multichannel template needs both, and that is normal rather than a sign you chose
+wrong: `linkedin-email` and `smart-multi-channel` in
+[outreach-sequence](../outreach-sequence/SKILL.md) section 1 both carry email steps and
+LinkedIn steps, so the same contact gets messages from both prompts. Run them one after
+the other, with the same answers to the four questions, and keep the two sets of columns
+apart.
+
+**Never translate an email into a LinkedIn message.** Four rules make it a different
+piece of writing, and all four are in the prompt:
+
+- **You do not sign.** No name, no company, no job title, no signature block.
+- **Every message ends on a question.** The invitation note is the only exception.
+- **No closing formula.** Not "Bien à vous", not "Cordialement", not "Best regards", not
+  "Looking forward to hearing from you".
+- **You introduce yourself far less.** The reader opens your profile in one click, so a
+  paragraph explaining who you are spends the two lines that decide whether they keep
+  reading, on information already on their screen.
+
+Four more come from the channel itself:
+
+- **The invitation note is capped at 300 characters**, spaces included, and the Emelia
+  invitation editor flags anything longer. The best note is often no note: an empty one
+  is usually accepted more often than a pitched one, which is why the Emelia templates
+  ship the invitation empty. Generate one anyway, show both options, let the user pick.
+- **There is no subject line and the window is narrow.** The first sentence does the work
+  a subject would do, and the message is read in a column about half the width of an
+  email, usually on a phone. Two or three short paragraphs, not four.
+- **No HTML.** Verified against the V3 LinkedIn preview on 9 September 2026: the body is
+  escaped before it is rendered, so a `<p>` or a `<b>` arrives as visible characters, not
+  as formatting. The same preview resolves `{{...}}` against the contact, its custom
+  fields and its company, and nothing else, which is why `{{signature}}` and
+  `{{unsubscribe_link}}` have no meaning in a LinkedIn step. A LinkedIn step body is the
+  message, and only the message.
+- **No unsubscribe link, because it is not an email.** Section 10 below is about email
+  steps. Do not carry its footer over: the exit on LinkedIn is that they stop replying,
+  or they disconnect, and both work without you adding anything.
+
+And one that is easy to miss: **the first message arrives after an acceptance.** This
+person clicked accept. Writing to them as though they had never heard of you wastes the
+one thing you have that a cold email does not. The prompt says so, and also says not to
+thank them for accepting, which is the other half of the same mistake.
+
+**Ask the same four questions first**, from the block above: the language, the form of
+address for languages that separate them, the gender of the person writing for languages
+that agree, and the rules for that language. Ask them once and reuse the answers on both
+channels. Question 3 catches people out here: not signing removes the name, not the
+grammar, so "je serais ravi d'en parler" is still wrong when a woman writes it.
+
+The lengths, the prospect and company blocks, the JSON contract, the `li_` columns and
+the checks on the sample of 20 are all in
+[references/linkedin-message-prompt.md](references/linkedin-message-prompt.md).
 
 #### Mode B: two variants that test something
 
@@ -220,7 +449,12 @@ When the row has an icebreaker from
 When it does not, the implication becomes the opener on its own, which is why the
 second line must stand alone.
 
-### 5. The body: 50 to 125 words
+### 5. The body: about 300 characters, which is 45 to 50 words
+
+Characters are what the checks measure, because that is what decides how many lines a
+phone renders. The reference shape is 74 characters, then 148, then 74: one medium
+paragraph, one long, one short that carries the ask and ends on a question. See the
+length table in `outreach-audit`, which both scripts read from.
 
 One problem, one proof, one ask. Nothing else.
 
@@ -234,6 +468,13 @@ One problem, one proof, one ask. Nothing else.
   sender. Put the link in step 2 or later. The opt out link does not count against this:
   it is never rewritten (section 10).
 - Plain text beats HTML. If the user's step is HTML, keep the markup to paragraphs.
+
+Those word counts are a habit, not the gate. The checker measures characters, because
+characters are what a phone renders: 220 to 300 on step 1, hard cap 380, and less on the
+follow-ups. The table is in the Mode A section above and the reasoning is in
+`outreach-audit` section 3. Three hundred characters is about 47 words, so treat the top
+of the word range as the point where you are already writing a second email. Where the
+two disagree, the character table wins, because it is the one that blocks.
 
 ### 6. Proof
 
@@ -273,7 +514,7 @@ teaches the reader to ignore the thread.
 
 | Step | Day | Thread | What it adds | Length |
 |---|---|---|---|---|
-| 1 | 0 | new | The angle and the ask | 50 to 125 words |
+| 1 | 0 | new | The angle and the ask | 220 to 300 characters |
 | 2 | 3 to 4 | same thread, empty subject | New proof, same angle. The shortest email of the sequence | 30 to 60 words |
 | 3 | 7 to 9 | new thread | New angle on the same problem, or a format switch (one bare question) | 40 to 80 words |
 | 4 | 14 to 16 | same thread as 3 | The break-up | 30 to 50 words |
@@ -301,6 +542,10 @@ last attempt" when it is not, or invented scarcity.
 
 Everything above is the text. This is what actually goes in the editor, and getting it
 wrong is how a good sequence ships broken.
+
+This whole section is about **email** steps. A LinkedIn step body is the message and
+nothing else: no signature variable, no opt out link, no HTML. See "Mode A on LinkedIn"
+in section 1.
 
 The body of an email step is three blocks, in this order, separated by a blank line:
 
@@ -418,7 +663,7 @@ this order, and say that you checked by hand.
 | Subject length | 30 to 45 characters, hard stop at 60 | WARN then FAIL |
 | Subject on mobile | first 35 characters must stand alone | WARN |
 | Subject case | more than half the words capitalised, or any shouted word | WARN then FAIL |
-| Step 1 length | 50 to 125 words | FAIL |
+| Step 1 length | 220 to 300 characters, 380 hard cap | FAIL |
 | Follow-up length | 90 words maximum | FAIL |
 | Whole sequence | 400 words maximum | WARN |
 | Links | 0 or 1 in step 1, 1 per step after | FAIL |
@@ -631,10 +876,55 @@ having no fallback. That warning is the point: give `subject_line`, `message` an
 on and an empty `message` sends an empty email. Coverage is counted in
 [outreach-personalize](../outreach-personalize/SKILL.md), not here.
 
+The LinkedIn steps of the same file are carriers too, and they are shorter, because there
+is no subject, no signature and no opt out link to carry:
+
+````markdown
+## Step 1 | linkedin invitation | day 0
+
+**Body:**
+
+```text
+{{li_note}}
+```
+
+## Step 2 | linkedin message | day 1 | after acceptance
+
+**Body:**
+
+```text
+{{li_message}}
+```
+````
+
+One variable, alone on its line, and nothing under it. A `{{signature}}` added here
+renders as nothing, and an unsubscribe anchor added here renders as visible HTML tags in
+the middle of a chat message.
+
 ## Checks before finishing
 
 - `python3 scripts/check-copy.py outreach/sequence.md outreach/leads.csv` exits 0.
 - The header carries `Mode:` and `Opt-out:`, and the mode matches what was actually done.
+- In Mode A, the four questions were asked and answered before the generation started,
+  and the answers are in the header as `Language:`, `Address:` and `Signer:`. The form of
+  address was not asked in English, and the signer's gender was never inferred from a
+  first name.
+- In Mode A, the prompt in
+  [references/per-contact-prompt.md](references/per-contact-prompt.md) was used unchanged:
+  three placeholders filled, rules appended to its block 2, nothing else touched.
+- In Mode A, `python3 scripts/audit-emails.py outreach/sample-rendered.md` was run over
+  the rendered sample of 20, and no step is over its hard cap.
+- For LinkedIn steps, the prompt in
+  [references/linkedin-message-prompt.md](references/linkedin-message-prompt.md) was used
+  rather than the email prompt, and the sample check in its section 7 was run: every
+  message ends on a question, no message carries a closing formula or a signature, no
+  invitation note is over 300 characters, and no value contains a variable or a tag.
+- No LinkedIn step body carries `{{signature}}` or `{{unsubscribe_link}}`. Neither
+  resolves there, and the second one arrives as visible markup.
+- On a multichannel campaign, both prompts were run with the same answers to the four
+  questions, and the LinkedIn columns are the `li_` ones, not the email columns reused.
+- No generated message value contains a variable, a signature, a sign off or an
+  unsubscribe link. Those belong to the step, not to the value.
 - Every variable used appears in the `leads.csv` header, or is an Emelia contact field,
   and any variable that is empty on some rows carries a fallback.
 - Every factual claim in the copy has a source the user gave you, written in the header.
@@ -681,6 +971,42 @@ settings.
 with a capital letter, which does not resolve, or the sending identity has no signature
 configured. Check both, in that order.
 
+**The messages come back at 500 characters.** "3 to 4 short paragraphs" was read as
+generous. It is a ceiling on the count, not a licence on the total: three paragraphs
+inside 300 characters. Add the length line to the block 2 injection and regenerate the
+sample rather than trimming a thousand messages by hand.
+
+**Every French email says "je serais ravi" and a woman signs them.** Question 3 was
+skipped, or the answer never made it into the injected block. Regenerate: this is one
+wrong letter in the first person singular and French readers see it immediately.
+
+**The model wrote "Cher Monsieur" or "Sehr geehrter Herr Leroy".** It guessed the
+recipient's gender, which the list does not carry. Add the no gendered salutation line
+for that language and regenerate, do not patch the rows.
+
+**The LinkedIn message is signed.** The email prompt was used on a LinkedIn step, or the
+"don't sign" line never made it into the run. A name at the bottom of a LinkedIn message
+is the tell that it came out of a machine, because the name is already at the top of the
+thread. Regenerate with the LinkedIn prompt rather than trimming the last two lines off a
+thousand rows.
+
+**Every LinkedIn message ends on "Bien à vous" or "Best regards".** Same cause. The
+closing formula rule is in block 2 of
+[references/linkedin-message-prompt.md](references/linkedin-message-prompt.md) and in the
+appended language lines, and it has to be in both when the language has its own formulas.
+
+**The first LinkedIn message opens by explaining who the sender is.** The model wrote an
+email. The profile is one click away and that paragraph is the two lines the reader
+actually spends. Add the no self introduction line to the appended block and regenerate.
+
+**The invitation note is rejected or truncated.** It is over 300 characters. The Emelia
+editor flags it, LinkedIn does not accept it, and the fix is at the prompt: the note is
+the shortest piece of the five, and it is often better empty.
+
+**A LinkedIn message arrives with `<p>` visible in it.** HTML was pasted into a LinkedIn
+step. The body is escaped before it is rendered, so tags show up as characters. Strip
+them, and never carry the email footer across.
+
 **The A and B variants are the same email in different words.** That is not a test, it is
 two sends. Go back to the table in section 1, pick one thing to vary, and rewrite B
 around it.
@@ -692,14 +1018,23 @@ section 1 exists to avoid.
 
 ## Limits
 
-This skill does not send anything and does not create the campaign. It does not yet
-hold the per contact writing prompt: section 1 is the place it goes, and until it is
-there this skill asks for the user's own prompt rather than inventing one. It cannot
-check a Mode A message it has not rendered, so a carrier that passes the checker is not
-a campaign that passed the checker. It does not know your reply rate: the benchmarks it
-uses are rules of thumb, not measurements from your account, and `outreach-audit` is
-what gives you your own numbers. It cannot verify a
+This skill does not send anything and does not create the campaign. The per contact
+prompts in [references/per-contact-prompt.md](references/per-contact-prompt.md) and
+[references/linkedin-message-prompt.md](references/linkedin-message-prompt.md) are two
+prompts, not a style engine: they write creative, pattern breaking cold outreach, and a
+segment that wants a dry, technical register is a segment where you write Mode B or hand
+it your own prompt. The LinkedIn one covers the invitation note, the messages and the
+InMail, and nothing else on the platform: it does not write posts, comments, voice notes
+or replies to a conversation that has started, and it has no way to check whether the
+sending account can carry the volume, which is `outreach-deliverability` and
+[outreach-sequence](../outreach-sequence/SKILL.md) section 5. It cannot check a Mode A message it has not rendered, so a carrier
+that passes the checker is not a campaign that passed the checker. It does not know your
+reply rate: the benchmarks it uses are rules of thumb, not measurements from your
+account, and `outreach-audit` is what gives you your own numbers. It cannot verify a
 claim the user makes about their own product, so it writes claims down with their
 source and leaves the responsibility where it belongs. It does not write in a language
-it cannot check: if the user wants a language you are not confident in, say so, because
-a cold email with an awkward sentence in it is worse than one in English.
+it cannot check: the table in
+[references/per-contact-prompt.md](references/per-contact-prompt.md) section 6 lists the
+languages it has something true to say about, and for anything outside it, say so and
+offer English or a native reader on the sample of 20, because a cold email with one
+wrong agreement in it is worse than one in English.

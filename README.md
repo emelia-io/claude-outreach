@@ -5,7 +5,7 @@ list, find and verify professional emails and mobile numbers, write a sequence t
 does not read like a template, check your deliverability, launch the campaign, triage
 the replies, and read what actually worked.
 
-16 sub-skills, 5 sub-agents, MIT licensed, no lock-in. Bring your own data or source
+17 sub-skills, 5 sub-agents, MIT licensed, no lock-in. Bring your own data or source
 it, bring your own mailboxes, keep every file on your machine.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-F46D12)](https://docs.claude.com/en/docs/claude-code/skills)
@@ -129,6 +129,7 @@ Then, once you trust it:
 |---------|-------------|
 | `/outreach pilot` | Guided first campaign on 100 contacts, checkpoint at every step |
 | `/outreach full <brief>` | The complete pipeline, ICP to analysis |
+| `/outreach offer <url>` | Turn what you sell into an offer a competitor could not copy |
 | `/outreach icp <brief>` | Turn a vague brief into a targeting spec |
 | `/outreach leads <query>` | Build the list from Basile, LinkedIn or a CSV |
 | `/outreach filter <list>` | Dedupe, exclude customers and blacklist, segment |
@@ -147,6 +148,12 @@ Then, once you trust it:
 Full reference in [docs/COMMANDS.md](docs/COMMANDS.md).
 
 ## What it does
+
+**An offer, not a job description.** The first reason a sequence gets no reply is not
+the copy, it is that the sender sells something generic. "We do SEO" is a line any
+competitor could put their logo on. `/outreach offer` reads your site, names the
+sentence everyone in your category writes, and works with you until what you sell is
+specific enough to answer.
 
 **Targeting that survives contact with reality.** Most campaigns fail before the
 first email because the list is wrong. `/outreach icp` turns "SaaS companies" into

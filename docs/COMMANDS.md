@@ -74,6 +74,26 @@ when you already know your market and do not want eleven prompts.
 /outreach full "sell our API monitoring tool to CTOs of French SaaS companies, 20 to 200 people"
 ```
 
+## `/outreach offer <url or description>`
+
+Turns what the user sells into an offer a competitor could not copy. This is the first
+command of a run, and the one that decides whether the rest is worth doing: the most
+common reason a sequence gets no reply is not the copy, it is that the sender sells
+something anyone in their category could claim.
+
+- **Argument** a website URL, a description of what they sell, or nothing, in which
+  case the skill asks
+- **Reads** the site when given a URL: home, pricing, services, case studies, about,
+  blog titles
+- **Writes** `outreach/offer.md`, whose last block is pasted into `{{COMPANY_INFO}}`
+  when the writing prompt runs
+- **Credits** none, it never touches Emelia
+
+```
+/outreach offer https://example-agency.com
+/outreach offer "we do SEO for e-commerce"
+```
+
 ## `/outreach icp <brief>`
 
 Turns a vague sentence into a targeting spec you can argue with: titles and their

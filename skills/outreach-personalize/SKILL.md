@@ -70,11 +70,57 @@ change how you work:
    second signature inside the variable ships two of them. A link to a page is allowed,
    but it is the one link that step is allowed to have.
 
-The prompt used to write those messages is not in this repository yet. It has a named
-place waiting for it in [outreach-write](../outreach-write/SKILL.md), section 1, under
-"Mode A: the per contact writing prompt". Until it is filled in, ask the user for the
-prompt they use, or drop to Mode B. Do not improvise a house prompt and present it as
-the method.
+The prompt that writes those messages is in
+[outreach-write](../outreach-write/SKILL.md), section 1, under "Mode A: the per contact
+writing prompt", with the prompt itself in
+[per-contact-prompt.md](../outreach-write/references/per-contact-prompt.md). Run it
+unchanged, and only once the four questions it needs are answered: the language, the
+form of address in languages that separate a formal and an informal you, the gender of
+the person signing because the grammar agrees and it is never guessed from a first name,
+and the rules for that language. If the user has a prompt of their own they would rather
+use, run theirs and store it with the run, but ask the same four questions either way:
+they are about the reader, not about the prompt.
+
+### 1b. Is there enough in the file to personalize at all
+
+Answer this before anything else, because the honest answer is often no, and saying so
+early saves the user a bad campaign.
+
+Personalization needs something to say about **this** person. A row carrying a first
+name, a last name and a company domain carries nothing: there is no fact in it that
+another row does not also have. And no, you do not go and read 500 websites to make up
+the difference. That is hours of fetching, a fortune in tokens, and it fails silently on
+the sites that block you. The information has to be in the file.
+
+The threshold, per row: at least one of a **company description**, a **LinkedIn profile
+description or headline**, or a **catchphrase or tagline**. A LinkedIn scrape gives you
+these, and so does a decent CRM export.
+
+Everything else in the row is a bonus, and worth using when it is there:
+
+| Column | What it lets you say |
+|---|---|
+| `job_title`, `seniority` | The problem you name, and how technical you get |
+| `company_headcount` | A founder of eight and a director in a group of 900 do not share a problem |
+| `company_industry`, `company_naf` | The example you reach for, and the vocabulary |
+| `city`, `country_code` | A local reference, an event, a market fact, the language |
+| `age` | Register and cultural references, when the file happens to carry it |
+| `signal` | A funding round, a job posting, a move: the reason you are writing now |
+
+Use what is there, and never invent what is not. A single strong fact beats four weak
+ones stitched together.
+
+**When the threshold is not met, say it plainly and offer the exit.** Something like:
+"Your file has names, companies and domains, and nothing that says anything about this
+person in particular. Personalizing on that would produce five hundred variations of the
+same empty sentence, which reads worse than a straight message. Three options: scrape
+the LinkedIn profiles to get the descriptions, add the missing column from your CRM, or
+skip personalization and write two real A/B variants instead. The third one costs
+nothing and often performs better than fake personalization."
+
+That last path is Mode B in `outreach-write`, and it is not a consolation prize: two
+variants testing different angles on a well chosen list beat a personalized line that
+says nothing.
 
 ### 2. Decide what is a variable and what is a segment
 
@@ -240,9 +286,13 @@ variables and fallbacks applied, and read all twenty. Score each one:
 
 In Mode A the sample is the only place the copy is ever checked, so read the whole
 message, not just the first line, and score it against the rules in
-[outreach-write](../outreach-write/SKILL.md): 50 to 125 words, one ask, one question mark,
-zero or one link, no spam word stack, no sign off inside the value. A message that breaks
-those is a "wrong" row, the same as a factual error.
+[outreach-write](../outreach-write/SKILL.md): 220 to 300 characters of body on step 1 and
+less on the follow-ups, one ask, one question mark, zero or one link, no spam word stack,
+no sign off and no variable inside the value. Do not judge the length by eye: write the
+twenty rendered emails into `outreach/sample-rendered.md` in the same `## Step N` and
+fenced body shape as `sequence.md`, and run
+`python3 scripts/audit-emails.py outreach/sample-rendered.md` over it. A message that
+breaks those is a "wrong" row, the same as a factual error.
 
 The gates:
 
@@ -251,7 +301,7 @@ The gates:
 | Wrong rows | 0 out of 20 | Fix the generation rule, not the row, then re-sample |
 | Usable rows | at least 14 out of 20 | The source is too thin for a variable, demote it to a segment |
 | Empty case | blank the variable on 2 rows and re-render | If the email stops reading, the fallback is wrong |
-| Length | 25 words maximum per icebreaker, 125 for a whole message | Long icebreakers read as generated |
+| Length | 25 words maximum per icebreaker. A whole message stays inside the character table in [outreach-write](../outreach-write/SKILL.md) | Long icebreakers read as generated. A long message is fixed at the prompt, not row by row |
 | Repetition | no two of the 20 share an opening construction | You wrote a template with a slot, not a personalization |
 | Plumbing | no sign off, signature or opt out link inside any generated value | The step adds those, and the variable would double them |
 
@@ -422,8 +472,9 @@ written a second time.
 ## Limits
 
 This skill does not hold the per contact writing prompt: it fills variables with
-whatever prompt it is given, and the named place for the house prompt is in
-[outreach-write](../outreach-write/SKILL.md), section 1. It does not fetch data on its
+whatever prompt it is given, and the house prompt lives with
+[outreach-write](../outreach-write/SKILL.md), in
+[references/per-contact-prompt.md](../outreach-write/references/per-contact-prompt.md). It does not fetch data on its
 own beyond what the list already holds and what the sourcing step collected: it will not
 browse for a prospect. It cannot verify that a
 source URL still says what it said when it was captured, which is why every row carries

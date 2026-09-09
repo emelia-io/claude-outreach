@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "claude-outreach",
-      "description": "Universal B2B outreach skill for Claude Code. 16 sub-skills and 5 sub-agents covering ICP definition, lead sourcing, email finder, phone finder, verification, AI personalization, multichannel sequences, deliverability, campaign launch, reply handling, analytics and GDPR compliance.",
+      "description": "Universal B2B outreach skill for Claude Code. 17 sub-skills and 5 sub-agents covering offer positioning, ICP definition, lead sourcing, email finder, phone finder, verification, AI personalization, multichannel sequences, deliverability, campaign launch, reply handling and content audit.",
       "author": { "name": "Emelia" },
       "category": "sales",
       "source": ".",

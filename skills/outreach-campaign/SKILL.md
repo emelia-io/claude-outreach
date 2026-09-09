@@ -209,11 +209,19 @@ GET   /advanced/campaigns/{id}          the whole object
 PATCH /advanced/campaigns/{id}/steps    send the entire tree back
 ```
 
+**Never invent a step `_id`.** Omit it on a new tree and the server generates a real
+ObjectId for every step and version. Write `"e1"` or a UUID instead and the campaign
+saves without complaint, reads back correctly, and then sends the same email to the same
+person over and over: the activity record that logs a send casts `stepId` to an
+ObjectId, the cast fails after the message has already gone out, no activity is stored,
+and the scheduler replans a step it has no record of having run. Conditions on that step
+hang forever for the same reason. The only `_id` you write by hand is `"START"` on the
+root. `outreach-sequence` has the full explanation and the recovery for a campaign
+already built that way.
+
 On a campaign that has already sent something, keep the `_id` of every step and every
 version you are not changing: activities, per version statistics and each contact's
 position in the sequence hang off those ids, and new ids restart people mid sequence.
-The server generates ids that are missing, so a brand new tree can omit them entirely,
-but an existing tree must keep the ones it has.
 
 And a campaign that is `RUNNING` refuses every one of these calls with
 `You must pause your campaign before updating it`. Pause, patch, start again.

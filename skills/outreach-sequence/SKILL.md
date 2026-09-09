@@ -268,17 +268,17 @@ six weeks later you can tell a deliberate cut from a mistake.
   "steps": {
     "_id": "START", "stepType": "START", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
     "next": {
-      "_id": "e1", "stepType": "EMAIL", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
-      "versions": [{"_id": "e1-v", "subject": "status page vs reality", "message": "sequence.md step 1, then {{signature}}, no opt out link", "disabled": false}],
+      "stepType": "EMAIL", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
+      "versions": [{"subject": "status page vs reality", "message": "sequence.md step 1, then {{signature}}, no opt out link", "disabled": false}],
       "next": {
-        "_id": "e2", "stepType": "EMAIL", "identities": [], "delay": {"amount": 3, "unit": "DAYS"},
-        "versions": [{"_id": "e2-v", "subject": "", "message": "sequence.md step 2, then {{signature}}, then the opt out anchor", "disabled": false}],
+        "stepType": "EMAIL", "identities": [], "delay": {"amount": 3, "unit": "DAYS"},
+        "versions": [{"subject": "", "message": "sequence.md step 2, then {{signature}}, then the opt out anchor", "disabled": false}],
         "next": {
-          "_id": "e3", "stepType": "EMAIL", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
-          "versions": [{"_id": "e3-v", "subject": "who gets paged", "message": "sequence.md step 3, then {{signature}}, then the opt out anchor", "disabled": false}],
+          "stepType": "EMAIL", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
+          "versions": [{"subject": "who gets paged", "message": "sequence.md step 3, then {{signature}}, then the opt out anchor", "disabled": false}],
           "next": {
-            "_id": "e4", "stepType": "EMAIL", "identities": [], "delay": {"amount": 10, "unit": "DAYS"},
-            "versions": [{"_id": "e4-v", "subject": "", "message": "sequence.md step 4, the break up, then {{signature}}, then the opt out anchor", "disabled": false}]
+            "stepType": "EMAIL", "identities": [], "delay": {"amount": 10, "unit": "DAYS"},
+            "versions": [{"subject": "", "message": "sequence.md step 4, the break up, then {{signature}}, then the opt out anchor", "disabled": false}]
           }
         }
       }
@@ -297,19 +297,19 @@ six weeks later you can tell a deliberate cut from a mistake.
   "steps": {
     "_id": "START", "stepType": "START", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
     "next": {
-      "_id": "invite", "stepType": "CONNECTION", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
-      "versions": [{"_id": "invite-v", "message": ""}],
+      "stepType": "CONNECTION", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
+      "versions": [{"message": ""}],
       "next": {
-        "_id": "dm1", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
-        "versions": [{"_id": "dm1-v", "message": "sequence.md LinkedIn message 1"}],
+        "stepType": "MESSAGE", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
+        "versions": [{"message": "sequence.md LinkedIn message 1"}],
         "next": {
-          "_id": "dm2", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 3, "unit": "DAYS"},
-          "versions": [{"_id": "dm2-v", "message": "sequence.md LinkedIn message 2"}],
+          "stepType": "MESSAGE", "identities": [], "delay": {"amount": 3, "unit": "DAYS"},
+          "versions": [{"message": "sequence.md LinkedIn message 2"}],
           "next": {
-            "_id": "like", "stepType": "LIKE", "identities": [], "delay": {"amount": 7, "unit": "DAYS"},
+            "stepType": "LIKE", "identities": [], "delay": {"amount": 7, "unit": "DAYS"},
             "next": {
-              "_id": "dm3", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 4, "unit": "HOURS"},
-              "versions": [{"_id": "dm3-v", "message": "sequence.md LinkedIn break up"}]
+              "stepType": "MESSAGE", "identities": [], "delay": {"amount": 4, "unit": "HOURS"},
+              "versions": [{"message": "sequence.md LinkedIn break up"}]
             }
           }
         }
@@ -329,31 +329,31 @@ six weeks later you can tell a deliberate cut from a mistake.
   "steps": {
     "_id": "START", "stepType": "START", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
     "next": {
-      "_id": "invite", "stepType": "CONNECTION", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
-      "versions": [{"_id": "invite-v", "message": ""}],
+      "stepType": "CONNECTION", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
+      "versions": [{"message": ""}],
       "next": {
-        "_id": "accepted", "stepType": "CONDITION", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
+        "stepType": "CONDITION", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
         "conditions": {"field": "ACCEPTED", "operator": "EQUAL", "value": "true"},
         "yes": {
-          "_id": "dm1", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 2, "unit": "HOURS"},
-          "versions": [{"_id": "dm1-v", "message": "sequence.md LinkedIn message 1"}],
+          "stepType": "MESSAGE", "identities": [], "delay": {"amount": 2, "unit": "HOURS"},
+          "versions": [{"message": "sequence.md LinkedIn message 1"}],
           "next": {
-            "_id": "dm2", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
-            "versions": [{"_id": "dm2-v", "message": "sequence.md LinkedIn message 2"}],
+            "stepType": "MESSAGE", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
+            "versions": [{"message": "sequence.md LinkedIn message 2"}],
             "next": {
-              "_id": "dm3", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 10, "unit": "DAYS"},
-              "versions": [{"_id": "dm3-v", "message": "sequence.md LinkedIn break up"}]
+              "stepType": "MESSAGE", "identities": [], "delay": {"amount": 10, "unit": "DAYS"},
+              "versions": [{"message": "sequence.md LinkedIn break up"}]
             }
           }
         },
         "no": {
-          "_id": "inmail", "stepType": "INMAIL", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
-          "versions": [{"_id": "inmail-v", "subject": "who owns response monitoring", "message": "sequence.md InMail body"}],
+          "stepType": "INMAIL", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
+          "versions": [{"subject": "who owns response monitoring", "message": "sequence.md InMail body"}],
           "next": {
-            "_id": "like", "stepType": "LIKE", "identities": [], "delay": {"amount": 2, "unit": "DAYS"},
+            "stepType": "LIKE", "identities": [], "delay": {"amount": 2, "unit": "DAYS"},
             "next": {
-              "_id": "dm4", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
-              "versions": [{"_id": "dm4-v", "message": "sequence.md LinkedIn last message"}]
+              "stepType": "MESSAGE", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
+              "versions": [{"message": "sequence.md LinkedIn last message"}]
             }
           }
         }
@@ -376,61 +376,61 @@ six weeks later you can tell a deliberate cut from a mistake.
   "steps": {
     "_id": "START", "stepType": "START", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
     "next": {
-      "_id": "invite", "stepType": "CONNECTION", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
-      "versions": [{"_id": "invite-v", "message": ""}],
+      "stepType": "CONNECTION", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
+      "versions": [{"message": ""}],
       "next": {
-        "_id": "accepted", "stepType": "CONDITION", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
+        "stepType": "CONDITION", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
         "conditions": {"field": "ACCEPTED", "operator": "EQUAL", "value": "true"},
         "yes": {
-          "_id": "dm1", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 1, "unit": "HOURS"},
-          "versions": [{"_id": "dm1-v", "message": "sequence.md LinkedIn message 1"}],
+          "stepType": "MESSAGE", "identities": [], "delay": {"amount": 1, "unit": "HOURS"},
+          "versions": [{"message": "sequence.md LinkedIn message 1"}],
           "next": {
-            "_id": "dm2", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
-            "versions": [{"_id": "dm2-v", "message": "sequence.md LinkedIn message 2"}],
+            "stepType": "MESSAGE", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
+            "versions": [{"message": "sequence.md LinkedIn message 2"}],
             "next": {
-              "_id": "like", "stepType": "LIKE", "identities": [], "delay": {"amount": 8, "unit": "DAYS"},
+              "stepType": "LIKE", "identities": [], "delay": {"amount": 8, "unit": "DAYS"},
               "next": {
-                "_id": "dm3", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 4, "unit": "HOURS"},
-                "versions": [{"_id": "dm3-v", "message": "sequence.md LinkedIn message 3"}],
+                "stepType": "MESSAGE", "identities": [], "delay": {"amount": 4, "unit": "HOURS"},
+                "versions": [{"message": "sequence.md LinkedIn message 3"}],
                 "next": {
-                  "_id": "has-email-yes", "stepType": "CONDITION", "identities": [], "delay": {"amount": 3, "unit": "DAYS"},
+                  "stepType": "CONDITION", "identities": [], "delay": {"amount": 3, "unit": "DAYS"},
                   "conditions": {"field": "$email", "operator": "IS_NOT_EMPTY", "value": ""},
                   "yes": {
-                    "_id": "e1", "stepType": "EMAIL", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
-                    "versions": [{"_id": "e1-v", "subject": "status page vs reality", "message": "sequence.md step 1, then {{signature}}, no opt out link", "disabled": false}],
+                    "stepType": "EMAIL", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
+                    "versions": [{"subject": "status page vs reality", "message": "sequence.md step 1, then {{signature}}, no opt out link", "disabled": false}],
                     "next": {
-                      "_id": "e2", "stepType": "EMAIL", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
-                      "versions": [{"_id": "e2-v", "subject": "", "message": "sequence.md step 2, then {{signature}}, then the opt out anchor", "disabled": false}],
+                      "stepType": "EMAIL", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
+                      "versions": [{"subject": "", "message": "sequence.md step 2, then {{signature}}, then the opt out anchor", "disabled": false}],
                       "next": {
-                        "_id": "e3", "stepType": "EMAIL", "identities": [], "delay": {"amount": 20, "unit": "DAYS"},
-                        "versions": [{"_id": "e3-v", "subject": "", "message": "sequence.md step 3, then {{signature}}, then the opt out anchor", "disabled": false}],
-                        "next": {"_id": "end1", "stepType": "END_OF_CAMPAIGN", "identities": [], "delay": {"amount": 1, "unit": "DAYS"}}
+                        "stepType": "EMAIL", "identities": [], "delay": {"amount": 20, "unit": "DAYS"},
+                        "versions": [{"subject": "", "message": "sequence.md step 3, then {{signature}}, then the opt out anchor", "disabled": false}],
+                        "next": {"stepType": "END_OF_CAMPAIGN", "identities": [], "delay": {"amount": 1, "unit": "DAYS"}}
                       }
                     }
                   },
-                  "no": {"_id": "end2", "stepType": "END_OF_CAMPAIGN", "identities": [], "delay": {"amount": 1, "unit": "DAYS"}}
+                  "no": {"stepType": "END_OF_CAMPAIGN", "identities": [], "delay": {"amount": 1, "unit": "DAYS"}}
                 }
               }
             }
           }
         },
         "no": {
-          "_id": "has-email-no", "stepType": "CONDITION", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
+          "stepType": "CONDITION", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
           "conditions": {"field": "$email", "operator": "IS_NOT_EMPTY", "value": ""},
           "yes": {
-            "_id": "e4", "stepType": "EMAIL", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
-            "versions": [{"_id": "e4-v", "subject": "status page vs reality", "message": "sequence.md step 1, then {{signature}}, no opt out link", "disabled": false}],
+            "stepType": "EMAIL", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
+            "versions": [{"subject": "status page vs reality", "message": "sequence.md step 1, then {{signature}}, no opt out link", "disabled": false}],
             "next": {
-              "_id": "e5", "stepType": "EMAIL", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
-              "versions": [{"_id": "e5-v", "subject": "", "message": "sequence.md step 2, then {{signature}}, then the opt out anchor", "disabled": false}],
+              "stepType": "EMAIL", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
+              "versions": [{"subject": "", "message": "sequence.md step 2, then {{signature}}, then the opt out anchor", "disabled": false}],
               "next": {
-                "_id": "e6", "stepType": "EMAIL", "identities": [], "delay": {"amount": 10, "unit": "DAYS"},
-                "versions": [{"_id": "e6-v", "subject": "who gets paged", "message": "sequence.md step 3, then {{signature}}, then the opt out anchor", "disabled": false}],
-                "next": {"_id": "end3", "stepType": "END_OF_CAMPAIGN", "identities": [], "delay": {"amount": 1, "unit": "DAYS"}}
+                "stepType": "EMAIL", "identities": [], "delay": {"amount": 10, "unit": "DAYS"},
+                "versions": [{"subject": "who gets paged", "message": "sequence.md step 3, then {{signature}}, then the opt out anchor", "disabled": false}],
+                "next": {"stepType": "END_OF_CAMPAIGN", "identities": [], "delay": {"amount": 1, "unit": "DAYS"}}
               }
             }
           },
-          "no": {"_id": "end4", "stepType": "END_OF_CAMPAIGN", "identities": [], "delay": {"amount": 1, "unit": "DAYS"}}
+          "no": {"stepType": "END_OF_CAMPAIGN", "identities": [], "delay": {"amount": 1, "unit": "DAYS"}}
         }
       }
     }
@@ -452,46 +452,46 @@ The InMail of the stock template sat where `end4` is. Keep it instead of the
   "steps": {
     "_id": "START", "stepType": "START", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
     "next": {
-      "_id": "e1", "stepType": "EMAIL", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
-      "versions": [{"_id": "e1-v", "subject": "status page vs reality", "message": "sequence.md step 1, then {{signature}}, no opt out link", "disabled": false}],
+      "stepType": "EMAIL", "identities": [], "delay": {"amount": 0, "unit": "DAYS"},
+      "versions": [{"subject": "status page vs reality", "message": "sequence.md step 1, then {{signature}}, no opt out link", "disabled": false}],
       "next": {
-        "_id": "bounced", "stepType": "CONDITION", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
+        "stepType": "CONDITION", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
         "conditions": {"field": "BOUNCED", "operator": "EQUAL", "value": "true"},
         "yes": {
-          "_id": "has-li", "stepType": "CONDITION", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
+          "stepType": "CONDITION", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
           "conditions": {"field": "$linkedinUrlProfile", "operator": "IS_NOT_EMPTY", "value": ""},
           "yes": {
-            "_id": "invite1", "stepType": "CONNECTION", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
-            "versions": [{"_id": "invite1-v", "message": ""}],
+            "stepType": "CONNECTION", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
+            "versions": [{"message": ""}],
             "next": {
-              "_id": "dm1", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
-              "versions": [{"_id": "dm1-v", "message": "sequence.md LinkedIn message 1"}]
+              "stepType": "MESSAGE", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
+              "versions": [{"message": "sequence.md LinkedIn message 1"}]
             }
           },
-          "no": {"_id": "end1", "stepType": "END_OF_CAMPAIGN", "identities": [], "delay": {"amount": 0, "unit": "DAYS"}}
+          "no": {"stepType": "END_OF_CAMPAIGN", "identities": [], "delay": {"amount": 0, "unit": "DAYS"}}
         },
         "no": {
-          "_id": "e2", "stepType": "EMAIL", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
-          "versions": [{"_id": "e2-v", "subject": "", "message": "sequence.md step 2, then {{signature}}, then the opt out anchor", "disabled": false}],
+          "stepType": "EMAIL", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
+          "versions": [{"subject": "", "message": "sequence.md step 2, then {{signature}}, then the opt out anchor", "disabled": false}],
           "next": {
-            "_id": "e3", "stepType": "EMAIL", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
-            "versions": [{"_id": "e3-v", "subject": "who gets paged", "message": "sequence.md step 3, then {{signature}}, then the opt out anchor", "disabled": false}],
+            "stepType": "EMAIL", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
+            "versions": [{"subject": "who gets paged", "message": "sequence.md step 3, then {{signature}}, then the opt out anchor", "disabled": false}],
             "next": {
-              "_id": "no-li", "stepType": "CONDITION", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
+              "stepType": "CONDITION", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
               "conditions": {"field": "$linkedinUrlProfile", "operator": "IS_EMPTY", "value": ""},
               "yes": {
-                "_id": "e4", "stepType": "EMAIL", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
-                "versions": [{"_id": "e4-v", "subject": "", "message": "sequence.md step 4, the break up, then {{signature}}, then the opt out anchor", "disabled": false}]
+                "stepType": "EMAIL", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
+                "versions": [{"subject": "", "message": "sequence.md step 4, the break up, then {{signature}}, then the opt out anchor", "disabled": false}]
               },
               "no": {
-                "_id": "invite2", "stepType": "CONNECTION", "identities": [], "delay": {"amount": 2, "unit": "DAYS"},
-                "versions": [{"_id": "invite2-v", "message": ""}],
+                "stepType": "CONNECTION", "identities": [], "delay": {"amount": 2, "unit": "DAYS"},
+                "versions": [{"message": ""}],
                 "next": {
-                  "_id": "dm2", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
-                  "versions": [{"_id": "dm2-v", "message": "sequence.md LinkedIn message 1"}],
+                  "stepType": "MESSAGE", "identities": [], "delay": {"amount": 1, "unit": "DAYS"},
+                  "versions": [{"message": "sequence.md LinkedIn message 1"}],
                   "next": {
-                    "_id": "dm3", "stepType": "MESSAGE", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
-                    "versions": [{"_id": "dm3-v", "message": "sequence.md LinkedIn message 2"}]
+                    "stepType": "MESSAGE", "identities": [], "delay": {"amount": 5, "unit": "DAYS"},
+                    "versions": [{"message": "sequence.md LinkedIn message 2"}]
                   }
                 }
               }
@@ -541,12 +541,43 @@ what keeps the follow ups in the same thread and the LinkedIn messages under the
 account. Writing an address or an account name in a step's `identities` does nothing at
 all, and reads as if it worked.
 
-**`_id` is a plain string and the server fills in the blanks.** Send a step or a version
-without one and Emelia generates it on save, for the whole tree including the branches.
-Send your own and it keeps yours. On a campaign that has already run, read the tree first
-and **keep the ids you are not changing**: every activity, every statistic and every
-contact's position in the sequence hangs off those ids, and regenerating them restarts
-people who were already deep in the sequence.
+**Do not write your own `_id`. Omit it and let the server generate it.** That is not a
+style preference, it is the difference between a campaign that runs and one that
+silently re-sends.
+
+The `steps` field is stored as `Mixed`, so Mongoose saves whatever shape you send. A
+`_id` of `"e1"`, or a UUID, or anything else, is accepted, saved, and reads back
+perfectly from `GET /advanced/campaigns/{id}`. The campaign looks right in the app.
+
+It breaks later, at send time. The activity record that logs the send declares
+`stepId` as an **ObjectId**, and it is required. A value that cannot be cast to a
+24 character hex ObjectId raises a CastError, and that write happens **after** the
+message has left. So the email is sent, the activity is not stored, and from the
+scheduler's point of view the step never happened: it plans it again, and the same
+person receives the same email on the next pass. Every condition that depends on that
+step is stuck too, because it looks for the origin activity and finds nothing, so the
+contact waits at the branch forever. From the outside it reads as "all the actions are
+failing".
+
+`versionId` has a rescue setter that turns an uncastable value into `undefined`, so a
+bad version id only costs you the per variant statistics. `stepId` has no such setter.
+
+Two consequences:
+
+- **A new tree ships without ids.** `ensureStepIds` walks the tree on save, including
+  the `yes` and `no` branches, and generates a real ObjectId for every step and every
+  version that has none. The only `_id` you write by hand is `"START"` on the root,
+  which is the schema's own default and never produces an activity because it is not an
+  action.
+- **An existing tree keeps the ids it has.** Read it with `GET`, change what you need in
+  the object you just read, send the whole thing back. Every activity, every per version
+  statistic and every contact's position in the sequence hangs off those ids, and
+  regenerating them restarts people who were already deep in the sequence.
+
+If you inherited a campaign built with invented ids, the fix is not to patch the ids in
+place while it runs. Pause it, read the tree, strip every `_id` except the root, send it
+back so the server regenerates them, and accept that the contacts already in flight lose
+their position. Anything else leaves a campaign that keeps re-sending.
 
 The manual call task is worth its own line. A `TASK` step parks the contact and shows
 up in the Emelia app as a pending task with the name you gave it. When the MCP server
@@ -643,6 +674,17 @@ Four flow level consequences:
   a signature or an opt out link added to version A only is a bug you will read as a
   result.
 
+Two fields on an email step that are easy to reach for and worth knowing about:
+
+- **`cc`** sits on the step, not on the version, and puts an address in carbon copy. It
+  accepts a variable, so `{{assistantEmail}}` copies each contact's own assistant. A
+  value that does not resolve to a valid address is dropped without an error, which is
+  the behaviour you want here rather than a failed send.
+- **`rawHtml`** exists in the version schema and is **not read by the multichannel
+  sending path**. Setting it changes nothing. If you need the HTML sent untouched, that
+  is not available on this campaign type, so write the body as the light HTML the
+  engine expects: `<p>` paragraphs, `<p></p>` for a blank line, one anchor.
+
 ### 5. Delays that work, and why
 
 | Between | Delay | Why |
@@ -659,7 +701,23 @@ not earn more meetings, they earn unsubscribes.
 
 The unit is `MINUTES`, `HOURS` or `DAYS`, and the delay is spent against the campaign's
 open days and hours: a 3 `DAYS` delay on a Monday to Friday schedule lands on the next
-open day, not on a Saturday.
+open day, not on a Saturday. So a 6 day delay on a schedule that only opens Tuesday to
+Thursday is nearly two real weeks. That is the intended behaviour, not a bug, and it is
+worth saying to the user when you show them the plan.
+
+**The delay on the first action is ignored.** When the sequence starts is decided by the
+daily quota (`dailyEmailAdded`, `dailyLinkedinAdded`), not by the delay you put on step
+one. Write `{"amount": 0, "unit": "DAYS"}` there and set the pace in the settings.
+
+**On a `CONDITION` the delay means something else entirely**: it is the observation
+window, how long the engine waits for the event before taking the `no` branch. See
+section 3.
+
+**A `MESSAGE` that follows a `CONNECTION` waits for the invitation to be accepted on its
+own**, without a condition step in between. The delay you set applies after the
+acceptance, not after the invitation was sent. Adding an `ACCEPTED` condition on top is
+still worth it when you want the people who never accepted to go somewhere else, since
+without it they simply stop.
 
 Schedule fields and their defaults in Emelia, so you know what you are changing:
 
@@ -853,71 +911,60 @@ repository's, and carry the decisions the platform does not store.
     "identities": [],
     "delay": { "amount": 0, "unit": "DAYS" },
     "next": {
-      "_id": "s1-email",
       "stepType": "EMAIL",
       "identities": [],
       "delay": { "amount": 0, "unit": "DAYS" },
       "versions": [
-        { "_id": "v-a", "subject": "status page vs reality", "message": "sequence.md step 1, variant A, ends with {{signature}}, no opt out link", "disabled": false },
-        { "_id": "v-b", "subject": "status page vs reality", "message": "sequence.md step 1, variant B, ends with {{signature}}, no opt out link", "disabled": false }
+        { "subject": "status page vs reality", "message": "sequence.md step 1, variant A, ends with {{signature}}, no opt out link", "disabled": false },
+        { "subject": "status page vs reality", "message": "sequence.md step 1, variant B, ends with {{signature}}, no opt out link", "disabled": false }
       ],
       "next": {
-        "_id": "s2-visit",
         "stepType": "VISIT",
         "identities": [],
         "delay": { "amount": 1, "unit": "DAYS" },
         "next": {
-          "_id": "s3-invite",
           "stepType": "CONNECTION",
           "identities": [],
           "delay": { "amount": 1, "unit": "DAYS" },
-          "versions": [{ "_id": "v-invite", "message": "" }],
+          "versions": [{ "message": "" }],
           "next": {
-            "_id": "s4-accepted",
             "stepType": "CONDITION",
             "identities": [],
             "delay": { "amount": 5, "unit": "DAYS" },
             "conditions": { "field": "ACCEPTED", "operator": "EQUAL", "value": "true" },
             "yes": {
-              "_id": "s5-dm",
               "stepType": "MESSAGE",
               "identities": [],
               "delay": { "amount": 1, "unit": "DAYS" },
-              "versions": [{ "_id": "v-dm", "message": "sequence.md step 2, LinkedIn wording" }]
+              "versions": [{ "message": "sequence.md step 2, LinkedIn wording" }]
             },
             "no": {
-              "_id": "s6-email2",
               "stepType": "EMAIL",
               "identities": [],
               "delay": { "amount": 3, "unit": "DAYS" },
-              "versions": [{ "_id": "v-s2", "subject": "", "message": "sequence.md step 2, then {{signature}}, then the opt out anchor" }],
+              "versions": [{ "subject": "", "message": "sequence.md step 2, then {{signature}}, then the opt out anchor" }],
               "next": {
-                "_id": "s7-email3",
                 "stepType": "EMAIL",
                 "identities": [],
                 "delay": { "amount": 5, "unit": "DAYS" },
-                "versions": [{ "_id": "v-s3", "subject": "who gets paged", "message": "sequence.md step 3, then {{signature}}, then the opt out anchor" }],
+                "versions": [{ "subject": "who gets paged", "message": "sequence.md step 3, then {{signature}}, then the opt out anchor" }],
                 "next": {
-                  "_id": "s8-clicked",
                   "stepType": "CONDITION",
                   "identities": [],
                   "delay": { "amount": 3, "unit": "DAYS" },
                   "conditions": { "field": "CLICKED", "operator": "EQUAL", "value": "true" },
                   "yes": {
-                    "_id": "s9-call",
                     "stepType": "TASK",
                     "identities": [],
                     "delay": { "amount": 1, "unit": "DAYS" },
-                    "versions": [{ "_id": "v-task", "subject": "Call the mobile, ask who owns response monitoring" }]
+                    "versions": [{ "subject": "Call the mobile, ask who owns response monitoring" }]
                   },
                   "no": {
-                    "_id": "s10-breakup",
                     "stepType": "EMAIL",
                     "identities": [],
                     "delay": { "amount": 7, "unit": "DAYS" },
-                    "versions": [{ "_id": "v-s4", "subject": "", "message": "sequence.md step 4, then {{signature}}, then the opt out anchor" }],
+                    "versions": [{ "subject": "", "message": "sequence.md step 4, then {{signature}}, then the opt out anchor" }],
                     "next": {
-                      "_id": "s11-end",
                       "stepType": "END_OF_CAMPAIGN",
                       "identities": [],
                       "delay": { "amount": 0, "unit": "DAYS" }

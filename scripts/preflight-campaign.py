@@ -50,6 +50,9 @@ COMPANY_VARS = {"companyDomain", "websiteUrl", "logoUrl", "industry", "companySi
 
 VAR = re.compile(r"\{\{\s*([A-Za-z0-9_]+)\s*\}\}")
 LIQUID = re.compile(r"\{%|\{#")
+# The activity record casts stepId to an ObjectId. Anything else raises after the
+# message has already been sent, so the send is not logged and gets planned again.
+OBJECT_ID = re.compile(r"^[0-9a-fA-F]{24}$")
 
 
 def call(key: str, path: str):
@@ -115,6 +118,19 @@ def main() -> int:
     # 3. The steps
     used = set()
     steps = list(walk(c.get("steps")))
+    for st, _ in steps:
+        sid = str(st.get("_id") or "")
+        if st.get("stepType") == "START":
+            continue
+        if not OBJECT_ID.match(sid):
+            blocking.append(f"step {st.get('stepType')} has _id {sid!r}, which is not a "
+                            f"24 character ObjectId: its sends will not be logged and "
+                            f"the step will be replanned and sent again")
+        for v in st.get("versions") or []:
+            vid = str(v.get("_id") or "")
+            if vid and not OBJECT_ID.match(vid):
+                warnings.append(f"version _id {vid!r} on a {st.get('stepType')} step is "
+                                f"not an ObjectId: per variant statistics are lost")
     emails = [(s, n) for s, n in steps if s.get("stepType") == "EMAIL"]
     print(f"steps     {len(steps) - 1} after START, {len(emails)} email")
     for s, n in emails:

@@ -95,10 +95,9 @@ export EMELIA_API_KEY="..."      # enrichment, contacts, campaigns, replies
 export BASILE_API_KEY="..."      # optional, French B2B data
 ```
 
-That is all you need: the skills talk to the documented REST API. If you also run the
-[Emelia MCP server](https://docs.emelia.io/docs/mcp-server), they will use it for the
-few things the REST API does not expose (campaign statistics, warmup status, sending
-accounts, list management).
+That is all you need: the skills talk to the REST API, lists and campaigns included.
+If you also run the [Emelia MCP server](https://docs.emelia.io/docs/mcp-server), they
+will use it for the few things the REST API does not expose, such as warmup status.
 
 Without a key, everything still runs in dry run: you get the list, the copy and the
 sequence as files, nothing is sent and nothing is charged.
@@ -106,6 +105,17 @@ sequence as files, nothing is sent and nothing is charged.
 The whole pipeline runs through the API, campaign creation and launch included. Some
 of the configuration endpoints are not in the public documentation yet, so treat them
 as not contractual for now. See [docs/SETUP.md](docs/SETUP.md).
+
+**Staying up to date.** This repository moves. Ask for an update check at any time, or
+run it yourself:
+
+```bash
+bash scripts/check-update.sh
+```
+
+One call to the remote, one line back: `up to date`, or `behind by N commits` with the
+`git pull` to run. The skills check it at the start of a run and tell you rather than
+pulling behind your back.
 
 ## Quick start
 

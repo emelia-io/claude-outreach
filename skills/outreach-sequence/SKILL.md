@@ -523,7 +523,6 @@ These are Emelia's real step types. Use these exact values in `campaign.json`.
 | `INMAIL` | LinkedIn | InMail credits on the account | Paid, use it on the rows the invitation did not reach |
 | `LIKE`, `FOLLOW` | LinkedIn | a LinkedIn identity | Light touches, low value on their own, fine as a warm up |
 | `AUDIO` | LinkedIn | a LinkedIn identity | A voice note. High reply rate, does not scale, keep it for a short list |
-| `WHATSAPP` | WhatsApp | a connected number | Only where the market expects it |
 | `TASK` | human | nothing | The manual step, and this is the call step. Its name is `versions[0].subject` |
 | `CONDITION` | none | `conditions` plus `yes` and `no` | The branch, see below |
 | `API_CALL` | none | a URL | Fires a webhook, use it to write into your CRM |

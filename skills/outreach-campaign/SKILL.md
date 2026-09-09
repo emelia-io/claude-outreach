@@ -197,6 +197,27 @@ The tree is a linked structure, not a list: it starts at a `START` node and each
 carries the next one, with `yes` and `no` branches on a condition. The five shipped
 templates in `outreach-sequence` are the reference for what a valid tree looks like.
 
+**Every PATCH on this API replaces the whole block, and there is no partial update.**
+Not for steps, not for recipients, not for identities, not for settings. What you send
+becomes the block, and what you leave out is gone. Sending only the step you wanted to
+change deletes the rest of the sequence. Sending one list in `lists` detaches all the
+others. So the only correct shape is read, modify, send back:
+
+```
+GET   /advanced/campaigns/{id}          the whole object
+                                        change the one field, in the object you just read
+PATCH /advanced/campaigns/{id}/steps    send the entire tree back
+```
+
+On a campaign that has already sent something, keep the `_id` of every step and every
+version you are not changing: activities, per version statistics and each contact's
+position in the sequence hang off those ids, and new ids restart people mid sequence.
+The server generates ids that are missing, so a brand new tree can omit them entirely,
+but an existing tree must keep the ones it has.
+
+And a campaign that is `RUNNING` refuses every one of these calls with
+`You must pause your campaign before updating it`. Pause, patch, start again.
+
 **What goes in an email step, verbatim.** Subject and body are the carrier variables,
 never the written text:
 
@@ -211,10 +232,30 @@ From step 2 the opt out link is appended, as a real anchor:
 <p></p><p><a target="_blank" rel="noopener noreferrer" href="{{unsubscribe_link}}">Se désabonner</a></p>
 ```
 
-The body is HTML. Paragraphs are `<p>`, an empty line is `<p></p>`, and a `\n` renders
-as nothing, which turns the whole email into one block. Variables are double braces and
-nothing else: no Liquid, no filter, no default value, because Emelia has no fallback and
-an unresolved variable renders empty.
+The body is HTML. Paragraphs are `<p>`, an empty line is `<p></p>`, and a `\n` typed in
+the body renders as nothing, which turns the whole email into one block.
+
+**Inside a variable's value it is the opposite: a `\n` becomes a paragraph break.** The
+sending engine converts `\n\n` to `</p><p></p><p>` and `\n` to `</p><p>` when it
+substitutes a value. That is exactly why the carrier pattern works: you write the message
+into `email1message` as plain text with ordinary line breaks, and it comes out as
+paragraphs. Write HTML in the body, plain text with `\n` in the variable, and never the
+other way round.
+
+Variables are double braces. A name that does not resolve renders empty, silently, with
+no error and no default, so the campaign sends "Bonjour ," rather than failing. Guarantee
+the data instead of guarding the template: every variable a step uses must be filled on
+every contact of the list, which is what the pre-flight below checks.
+
+Only a fixed set of contact fields resolve at the root: `firstName`, `lastName`,
+`fullName`, `email`, `secondaryEmail`, `phone`, `mobilePhone`, `jobTitle`, `seniority`,
+`department`, `gender`, `age`, `language`, `linkedinUrlProfile`, `twitterUrl`, `country`,
+`region`, `city`, `postalCode`, `address`, `timezone`, `yearsOfExperience`, `education`,
+`bio` and `companyName`. Resolution then falls through to your custom variables, then to
+the linked company, where `companyCity` and `companyCountry` reach the company's own
+fields since the bare names belong to the contact. A field that exists on the contact but
+is not in that list, `birthDate` or `skills` for instance, renders empty in a message
+even though the API accepted it on import.
 
 The shapes Emelia uses:
 
@@ -262,7 +303,7 @@ Three more calls, all by API:
 - `PATCH /advanced/campaigns/{id}/recipients` with `{"recipients": {"lists_id": [...]}}`
   and `excludedLists` when you have exclusions.
 - `PATCH /advanced/campaigns/{id}/identities` with `{"identities": [...]}`, each entry
-  carrying a `name` and at least one of `email`, `linkedin` or `whatsapp`, using the
+  carrying a `name` and at least one of `email` or `linkedin`, using the
   ids collected by `outreach-deliverability`.
 
 The settings fields, with the values the product accepts:
@@ -300,7 +341,7 @@ before calling these again. The LinkedIn response also carries a live session to
 read the id and the status, and never print or store the rest.
 
 Then `PATCH /advanced/campaigns/{id}/identities` with `{"identities": [...]}`, where
-each entry carries a `name` and at least one of `email`, `linkedin` or `whatsapp`.
+each entry carries a `name` and at least one of `email` or `linkedin`.
 
 **Recipients**: attach the list from section 1. Confirm the contact count Emelia shows
 matches the rows you loaded. A campaign is capped at 15,000 recipients.
@@ -438,6 +479,6 @@ This skill does not write the copy and does not judge whether the sequence is an
 It cannot create the steps, the schedule or the sending accounts through the API, and it
 cannot press Launch for you: those happen once in the Emelia app, and the skill tells you
 exactly what to set there. It does not verify email addresses (`outreach-verify` does),
-does not create A/B variants through the API, and does not manage WhatsApp steps. It will
+does not create A/B variants through the API. It will
 not launch on a BLOCKED verdict, on an unverified list, or without an explicit yes, and
 no phrasing of the request changes that.

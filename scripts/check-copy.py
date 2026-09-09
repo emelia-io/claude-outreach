@@ -31,7 +31,7 @@ UNSUB_ANCHOR = re.compile(
     re.I | re.S)
 UNSUB_VAR = re.compile(r"\{\{\s*unsubscribe_link\s*\}\}", re.I)
 SIGNATURE = re.compile(r"\{\{\s*signature\s*\}\}")          # lowercase only, on purpose
-NOT_EMAIL = ("linkedin", "whatsapp", "call", "task", "visit", "invitation",
+NOT_EMAIL = ("linkedin", "call", "task", "visit", "invitation",
              "connection", "inmail", "audio", "voice", "sms")
 text = open(SEQ, encoding="utf-8").read()
 cols = set(next(csv.reader(open(LEADS, encoding="utf-8"))))

@@ -132,7 +132,27 @@ SCHEDULE_ASK = re.compile(
 EASY_QUESTION = re.compile(
     r"^(is|are|was|were|do|does|did|would|will|should|can|could|have|has|any|"
     r"worth|open to|interested|who|shall|makes sense|want|ok if|"
-    r"am i|right person)\b",
+    r"am i|right person|"
+    # French, German, Spanish and Italian openers that take a yes or a no. The stems
+    # below are the ones a cold email actually uses; the alternative question further
+    # down catches the rest whatever the language.
+    r"est-ce|est ce|avez|as-tu|as tu|auriez|aurais|voulez|veux|"
+    r"seriez|serais|pouvez|peux|pourriez|pourrais|"
+    r"faut-il|faut il|dois-je|dois je|puis-je|puis je|"
+    r"[cç]a (vous |te )?(dit|interesse|int[ée]resse|parle|va)|"
+    r"partant|d'accord|ok |int[ée]ress|qui (est|s'occupe|gere|g[èe]re)|"
+    r"vous (voulez|avez|[êe]tes|seriez|pouvez|prenez|dites|voyez)|"
+    r"on (regarde|en parle|se cale|fait|essaie)|je vous (montre|envoie|partage)|"
+    r"[cç]a (vaut|marche|ira)|un (creneau|cr[ée]neau|appel|echange|[ée]change)|"
+    r"ist|sind|haben|k[oö]nnen|w[aä]ren|w[uü]rden|"
+    r"tiene|tienes|puede|puedes|le interesa|te interesa|"
+    r"ha senso|le interessa|ti interessa)\b",
+    re.I,
+)
+# "A, or B?" gives the reader two words to pick from, which is the easiest possible
+# answer. Language agnostic: one question mark, one alternative marker, short enough.
+ALTERNATIVE_QUESTION = re.compile(
+    r"\b(or|ou|oder|o|oppure)\b[^?]{2,60}\?\s*$",
     re.I,
 )
 LEGALESE = re.compile(
@@ -356,6 +376,8 @@ def audit_step(step: dict) -> list[tuple]:
             f.append(("WARN", "cta", f"{len(q.split())} word question, cut it to under 12"))
         elif EASY_QUESTION.match(stem):
             f.append(("OK", "cta", "the question takes a yes or a no"))
+        elif ALTERNATIVE_QUESTION.search(q):
+            f.append(("OK", "cta", "two options, the reader picks one word"))
         else:
             f.append(("WARN", "cta", f"open question, not answerable with one word: \"{q[:70]}\""))
 
@@ -487,11 +509,14 @@ def audit_step(step: dict) -> list[tuple]:
     else:
         f.append(("OK", "attachments", "none"))
 
-    # the opt-out, which is the one link that belongs there
+    # The opt-out, which is the one link that belongs there. It is appended when the
+    # step body is assembled in Emelia, not written into the copy, so its absence is only
+    # a finding on a body that carries the rest of the assembly (the signature variable).
     has_unsub = bool(UNSUB.search(raw))
+    assembled = "{{signature}}" in raw or "{{SIGNATURE}}" in raw
     if n == 1 and has_unsub:
         f.append(("WARN", "cta", "opt-out link in step 1. The rule here is step 2 onward"))
-    if n > 1 and not has_unsub:
+    if n > 1 and not has_unsub and assembled:
         f.append(("WARN", "cta", "no opt-out from step 2 onward, and no List-Unsubscribe header "
                                  "without it"))
     if has_unsub and re.search(r">\s*https?://[^<]*<", raw):

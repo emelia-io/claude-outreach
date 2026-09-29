@@ -170,19 +170,23 @@ costs: 1 credit per record returned, billed on every call.
 
 ## 7. The one thing to know before your first campaign
 
-**The API creates a campaign, not a sequence.** `POST /advanced/campaigns` takes a
-name and nothing else. Steps, delays, schedule and sending accounts are configured
-in the Emelia app, once.
+**The whole campaign is built through the API, and nothing starts without your yes.**
+`POST /advanced/campaigns` creates it, always as an advanced campaign, whether it sends
+email, LinkedIn messages or both. The steps, delays, schedule, list and sending
+accounts are then set by API, and so is the start. Two things stay in the Emelia app:
+connecting a mailbox or a LinkedIn account, and the subscription a campaign needs to
+start.
 
 So the working order is:
 
 1. The skills produce the sequence spec, the copy and the cleaned list.
-2. You build that sequence in the app on the campaign, and start it.
+2. `/outreach campaign` builds the campaign from them, runs the pre-flight, and starts
+   it only after your explicit yes, unless you would rather press Launch in the app.
 3. The skills push contacts into the list attached to that campaign. Every contact
    added enters the running campaign on its own.
 
-That third step is what makes the rest programmable. Once the campaign exists and
-runs, feeding it is a one line operation and you never touch the interface again.
+That third step is what keeps it going. Once the campaign exists and runs, feeding it
+is a one line operation and you never touch the interface again.
 
 ## 8. Rate limits
 
@@ -206,7 +210,9 @@ and the enrichment agent already paces itself this way.
 ## 9. Running with no keys at all
 
 Supported, and useful. Without `EMELIA_API_KEY`, these still work completely:
-`/outreach icp`, `/outreach leads` from a CSV, `/outreach filter`, `/outreach write`,
+`/outreach offer`, `/outreach icp`, `/outreach leads` from Basile or a CSV,
+`/outreach filter`, `/outreach write`, `/outreach personalize`, `/outreach sequence`,
+and `/outreach audit` on `outreach/sequence.md`.
 
 Everything that touches Emelia runs in dry run: it produces its file, states which
 calls it would have made and what they would have cost, and changes nothing. It is a
@@ -217,5 +223,4 @@ good way to price a campaign before buying anything.
 [TROUBLESHOOTING.md](TROUBLESHOOTING.md) covers the failures people actually hit: a
 key that is refused, a quota that is exhausted, an enrichment job that never
 finishes, a campaign that will not start, emails landing in spam, variables that
-render as `{{first_name}}` in a sent email, and a list that comes back empty after
-filtering.
+render empty in a sent email, and a list that comes back empty after filtering.

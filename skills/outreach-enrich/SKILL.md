@@ -343,12 +343,13 @@ destination, because a list is what a campaign consumes and two segments with tw
 sequences are two campaigns. Name them `list-email-<segment>.csv`.
 
 **The email destination.** Create the list, then add the rows to it, then attach the
-list to the campaign. There is no documented REST route that creates a list, so use
-the MCP tool `create_list` with a `name`, or create it in the Emelia app and take its
-id. Then push with `add_contacts_to_list_bulk` (up to 100 flat contacts per call,
-`updateIfExists: true` so a re-run does not duplicate), or one row at a time over
-REST as in step 8. Report the `created` / `duplicates` / `updated` / `failed`
-breakdown it returns, as it is.
+list to the campaign. `POST /lists/list` with a `name` creates it and returns its
+`listId` (the MCP tool `create_list` does the same). Then push with
+`POST /lists/list/{listId}/contacts/batch?updateIfExists=true`, up to 100 flat contacts
+per call, as in step 8; `updateIfExists` is a query parameter, never a body key, and it
+is what makes a re-run update rather than duplicate. With MCP,
+`add_contacts_to_list_bulk` does the same job. Report the `created` / `duplicates` /
+`updated` / `failed` breakdown it returns, as it is.
 
 Attaching the list to the campaign is `outreach-campaign`'s job, with
 `PATCH /advanced/campaigns/{id}/recipients` and its `lists` and `excludedLists`
@@ -377,24 +378,13 @@ email, and the sequence is a connection request followed by at most three messag
 Want me to prepare it? (yes / not now / show me 10 of them first)
 ```
 
-Only if the user says yes: create the LinkedIn campaign with
-`POST /linkedin/campaigns` (it takes a `name` and nothing else), then add the contacts.
-Watch the field name, because the two LinkedIn routes disagree and a wrong key is a
-400 every time:
-
-```bash
-# into a LinkedIn list: the profile URL is "url"
-curl -s -X POST https://api.emelia.io/linkedin/lists/contacts \
-  -H "Authorization: $EMELIA_API_KEY" -H "Content-Type: application/json" \
-  -d '{"id":"<linkedinListId>","contact":{"url":"https://www.linkedin.com/in/marie-dupont-1a2b3c",
-       "firstName":"Marie","lastName":"Dupont"}}'
-
-# straight into a LinkedIn campaign: the same value is "linkedinUrlProfile"
-curl -s -X POST https://api.emelia.io/linkedin/campaign/contacts \
-  -H "Authorization: $EMELIA_API_KEY" -H "Content-Type: application/json" \
-  -d '{"id":"<linkedinCampaignId>","contact":{"linkedinUrlProfile":"https://www.linkedin.com/in/marie-dupont-1a2b3c",
-       "firstName":"Marie","lastName":"Dupont"}}'
-```
+Only if the user says yes: load `outreach/list-linkedin.csv` into a list of its own
+(`POST /lists/list`, then the batch route of step 8, with the profile URL under
+`linkedinUrlProfile`), and hand that list to `outreach-campaign`, which builds the
+campaign like any other one: an advanced campaign, `POST /advanced/campaigns`, with a
+LinkedIn only tree, the `pure-linkedin` template of `outreach-sequence`, or
+`linkedin-premium-or-sales-navigator` when the seat has InMail credits. Never create it
+with the old platform route `POST /linkedin/campaigns`.
 
 If the user has no LinkedIn account connected in Emelia, say so, keep the file, and
 leave it there. A CSV nobody can use today is still better than a channel you never
@@ -427,13 +417,21 @@ curl -s -X POST "https://api.emelia.io/lists/list/<listId>/contacts/batch?update
 ```
 
 A hundred contacts per call, 1 MB per body, so chunk the file by 100 and clip long text
-to about 4,000 characters before sending. `updateIfExists=true` turns a row that is
-already there into an update instead of a duplicate, which is what makes a re-run safe.
+to about 4,000 characters before sending. `updateIfExists=true`, in the query string and
+never in the body, turns a row that is already there into an update instead of a
+duplicate, which is what makes a re-run safe.
 
-Any key that is not a known contact field becomes a custom variable, so `icebreaker`
-above is usable as a variable in the sequence. The response returns it under
-`createdCustomVariables`, and the `technicalName` there, not your column header, is what
-the copy must spell. To set one field on a contact already in a campaign:
+Declare the custom variables before the first batch, one `POST /lists/custom-variable`
+per name, `{"technicalName": "icebreaker", "schema": "lead", "displayName": "Icebreaker"}`
+(201 when created, 422 when it already exists, so it is safe to repeat). A key Emelia
+does not know is resolved by alias, then by what its value looks like, before a custom
+variable is ever created, so an undeclared key can land in a standard field instead: a
+SIREN goes to `phone`. The full order is in `outreach-campaign` section 2, and the Emelia
+key for each column of the contract in `outreach-leads` section 0. A declared name keeps
+its spelling and is what the copy spells, `{{icebreaker}}`. A variable created on the fly
+comes back under `createdCustomVariables` with a flattened `technicalName`, and that
+`technicalName`, not your column header, is what the copy must spell. To set one field
+on a contact already in a campaign:
 
 ```bash
 curl -s -X PATCH https://api.emelia.io/advanced/contacts \
@@ -644,8 +642,9 @@ groups went four different ways.
   row count of `leads.csv`, and no `lead_id` appears in two of them. A row in both the
   email list and the LinkedIn list is a bug, not a double chance.
 - **Nothing was pushed to Emelia except the email destination**, and only after a yes.
-  The LinkedIn list was proposed, not created: check that no `POST /linkedin/campaigns`
-  was called unless the user asked for it in this session.
+  The LinkedIn list was proposed, not created: check that no LinkedIn list or campaign
+  was created unless the user asked for it in this session, and that nothing, ever, went
+  through the old platform route `POST /linkedin/campaigns`.
 - Every URL in the LinkedIn list is a `linkedin.com/in/<slug>` profile. No company
   page, no Sales Navigator link, no duplicate profile.
 - The summary names the four groups with their counts, and says the LinkedIn one is a

@@ -74,10 +74,11 @@ the product.
 
 ### Two searches, and one thing to know about each
 
-**`POST /people/find`** returns the person and **not their company**. You get
-identity, location, job title, LinkedIn URL, and the name plus internal id of the
-employer, but none of the employer's data: no SIREN, no NAF, no headcount, no
-Google rating.
+**`POST /people/find`** returns the person and **almost nothing of their company**.
+You get identity, location, job title, LinkedIn URL, and the name plus internal id of
+the employer. Registry rows add the legal name, the SIREN and the legal form; LinkedIn
+rows add the company's LinkedIn page and industry. No website, no domain, no NAF, no
+headcount, no Google rating.
 
 **`POST /companies/find`** already crosses the three sources. Each result carries
 its own record plus, when a match exists, the other two under `x_legal`, `x_lki` and
@@ -182,16 +183,16 @@ France, or when you are working a named account list and need the person inside 
 1. You build the search in Sales Navigator and give the skill the URL. Nobody can
    rebuild your filters, your saved leads and your seat's reach better than you can,
    so the skill does not try.
-2. The scrape runs through Emelia. With the MCP server configured, that is the
-   `linkedin_scrap` tool, which takes a name for the scrape, the search URL, and the
-   connected LinkedIn account it runs from. Read the tool's own parameter
-   description in your client before calling it: the scraper is not part of the
-   public REST reference, so its options move faster than the rest of the API.
-   Without the MCP server, you start the scrape in the Emelia app.
-3. The scrape produces a contact list in Emelia. Reading it back also needs the MCP
-   server: `list_lists` with `source: "linkedin_scrap"` to find it, then
-   `get_list_contacts` to page through it, 100 rows at a time. With neither, export
-   the list to CSV from the app and treat it as a CSV source.
+2. The scrape runs in Emelia, and you start it in the app, with the LinkedIn
+   Scraper, by pasting the search URL. No MCP tool and no documented REST route
+   starts one, so say so rather than implying it is automatable. If your MCP client
+   does advertise a scraping tool, read its declared input schema before calling it.
+3. The scrape produces a contact list in Emelia, and reading it back is automatable.
+   Over REST, `GET /lists/list?source=linkedin_scrap` (add `search` to narrow by name)
+   finds it and `GET /lists/list/{listId}/rows` pages through it, 100 rows at a time.
+   With the MCP server, `list_lists` with `source: "linkedin_scrap"` and
+   `get_list_contacts` do the same. You can also export the list to CSV from the app
+   and treat it as a CSV source.
 
 ### What you get and what you do not
 
@@ -200,8 +201,8 @@ not get an email, ever. LinkedIn does not publish them, and anything that claims
 read them from the profile is either guessing a pattern or breaking something.
 
 That matters for cost: a LinkedIn-sourced list is a list of names that still needs
-the Emelia email finder, one credit per row attempted, found or not. Filter hard
-before you enrich.
+the Emelia email finder, one credit per address found (a miss is refunded), and every
+lookup holds its credit while it runs. Filter hard before you enrich.
 
 The profile URL is worth keeping for another reason: it is the only input the Emelia
 phone finder accepts. No LinkedIn URL, no mobile number, ever.

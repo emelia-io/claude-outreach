@@ -39,7 +39,7 @@ running: that is [`outreach-audit`](../outreach-audit/SKILL.md).
 | `EMELIA_API_KEY` in the environment | for enrichment and sending | offer dry run: every file is still produced, nothing is sent, nothing is charged |
 | A source of contacts (Basile key, a Sales Navigator search URL, or a CSV) | yes | ask which one, a CSV always works |
 | A sending domain with SPF, DKIM and DMARC, and warmup running | before launch only | say it at step 1, not at step 8, so the user can start warmup today |
-| An Emelia campaign whose steps are already built in the app | before launch only | explain the split at step 1 (see step 8), it surprises everyone once |
+| A sending mailbox connected in Emelia, and an active subscription | before launch only | say it at step 1: `outreach-campaign` builds the whole campaign through the API (steps, schedule, list, sending accounts) and starts it after an explicit yes, but connecting a mailbox and subscribing happen in the app |
 
 `BASILE_API_KEY` is optional and only used if the list comes from Basile. The MCP
 server is optional too: the pilot uses the REST API by default and reaches for MCP
@@ -65,17 +65,18 @@ Time, if the sending domain is already warmed:
 If the domain is **not** warmed, add two to three weeks before step 8. Warmup cannot
 be compressed, and starting it is free, which is why step 7 is announced at step 1.
 
-Credits, on 100 contacts:
+Credits, for a pilot of 100 contacts:
 
 | What | How many jobs | Skipped when |
 |---|---|---|
-| Find email | one per contact with no email, at most 100 | the row already carries an address |
-| Verify email | one per address, so about 100 | never, verification is not optional here |
+| Find email | one per filtered row with no email, so about 250, and only the addresses found are billed (a miss is refunded) | the row already carries an address |
+| Verify email | one per address you brought, plus one per finder result qualified `risky` | always for a `valid` from the finder, which is already verified |
 | Find phone | zero | the pilot is email only |
 
-Each job consumes Emelia credits, and the price per job depends on your plan: read it
-in the Emelia app before you answer yes. This skill states the count and waits for an
-explicit yes before spending anything.
+Each address found and each verification consumes Emelia credits (a finder miss is
+refunded), and the price depends on your plan: read it in the Emelia app before you
+answer yes. This skill states the count and waits for an explicit yes before spending
+anything.
 
 **Submit the whole batch, then poll the whole batch.** The finder is asynchronous: the
 POST returns a `jobId` at once and the GET answers when the server is done. Waiting out
@@ -131,22 +132,25 @@ put their logo on the same sentence. If it still reads like a category descripti
 messages will read like everyone else's and the pilot will not tell you much.
 
 **Step 3. Source about 500, cut to about 250, enrich those.**
-Run [`outreach-leads`](../outreach-leads/SKILL.md) with a target of 150, then
-[`outreach-filter`](../outreach-filter/SKILL.md).
+Run [`outreach-leads`](../outreach-leads/SKILL.md) with a target of 500, then
+[`outreach-filter`](../outreach-filter/SKILL.md) down to about 250.
 Produces `outreach/leads.csv`, source column kept.
-Source 150 and not 100: filtering removes duplicates, current customers, blacklisted
-domains and rows too thin to personalize. Sourcing exactly 100 leaves you with 70.
+Source five times what you will send, as `outreach-leads` explains: filtering removes
+duplicates, current customers, blacklisted domains and rows too thin to personalize, and
+the finder then returns an address for 50 to 65% of what is left. Sourcing exactly 100
+leaves you with about 30. Counting is free, so the extra sourcing costs little.
 *Check before continuing:* open the file and read ten rows at random. For each one,
 could you write the first line of an email to that person without inventing anything?
 If the answer is no for three of the ten, the list is the problem. Go back to step 1.
 
-**Step 4. Find the missing addresses, and verify only the ones you brought yourself.**
+**Step 4. Find the missing addresses, and verify only the ones you brought yourself and the `risky` finds.**
 Run [`outreach-enrich`](../outreach-enrich/SKILL.md).
 Produces `outreach/enrichment.json`: found, not found, verification result, cost.
 Filter first (step 3), enrich second. Never the other way round: credits spent on rows
 you are about to delete are gone.
 *Check before continuing:* the run reports found and not found separately, as
-percentages. Keep the rows the finder returned as `valid`, plus the ones you brought that the verifier confirmed. Drop catch-all
+percentages. Keep the rows the finder returned as `valid`, plus the ones you brought and
+the `risky` finds that the verifier confirmed. Drop catch-all
 and unknown rows from the pilot rather than "trying them anyway", because on 100
 contacts you cannot afford their bounce risk. If you end up below 80 usable rows,
 source more before launching: a pilot on 60 contacts answers nothing.
@@ -182,13 +186,13 @@ people skip, and it is the most common reason a first campaign returns nothing.
 **Step 8. Launch.**
 Run [`outreach-campaign`](../outreach-campaign/SKILL.md). It waits for an explicit yes.
 Before you give it: send yourself a test of all three steps and read them on a phone.
-Be honest with the user about the split of work, and say it now if you have not
-already. `POST /advanced/campaigns` creates a campaign with a name and nothing else:
-the three steps, the delays, the schedule and the sending identities are built once in
-the Emelia app, on that campaign, and the user starts it there. From then on it is
-programmable: contacts added to the list attached to the campaign enter the running
-campaign on their own, so the last action of the pilot is pushing your 100 verified
-contacts into that list.
+The whole build goes through the API: `outreach-campaign` creates the campaign
+(`POST /advanced/campaigns`), pushes the three steps with their delays, the schedule,
+the list and the sending identities, runs the pre-flight, and starts it
+(`POST /advanced/campaigns/{id}/start`) only after your explicit yes, unless you prefer
+to press Launch in the app yourself. From then on, contacts added to the list attached to
+the campaign enter the running campaign on their own, which is how your 100 verified
+contacts get in, and how any later ones will.
 *Check before continuing:* `outreach/campaign.json` holds the campaign id, the list id
 and a contact count that matches the number you verified at step 4. If those counts
 differ, do not launch, find the missing rows first.
@@ -249,8 +253,8 @@ Target market: France. Offer: API monitoring for SaaS teams.
 | # | Step | Status | Result | Decided |
 |---|------|--------|--------|---------|
 | 1 | ICP | done | CTO / VP Eng, French SaaS, 20 to 200 people, excl. agencies | 2026-09-08 |
-| 3 | List | done | 152 sourced (Basile), 104 after filtering | 2026-09-08 |
-| 4 | Enrich | done | 104 rows: 71 emails found (68%), 66 verified valid, 5 dropped | 2026-09-08 |
+| 3 | List | done | 506 sourced (Basile), 251 after filtering | 2026-09-08 |
+| 4 | Enrich | done | 251 rows: 158 emails found (63%), 149 valid, 9 risky verified then dropped | 2026-09-08 |
 | 5 | Copy | done | angle: "your status page lies", one ask: 15 min | 2026-09-08 |
 | 6 | Sequence | done | 3 emails, day 0 / day 4 / day 11, stop on reply | 2026-09-08 |
 | 7 | Deliverability | BLOCKED | DMARC missing on mail.acme-outbound.com | 2026-09-08 |
@@ -258,17 +262,17 @@ Target market: France. Offer: API monitoring for SaaS teams.
 | 9 | Read | pending | day 3 / day 7 / day 14 | |
 
 ## Spend
-- Find email: 104 jobs, approved by user 2026-09-08 14:02
-- Verify email: 71 jobs, approved by user 2026-09-08 14:19
+- Find email: 251 jobs, 158 billed (the misses refunded), approved by user 2026-09-08 14:02
+- Verify email: 9 jobs, the risky finds only, approved by user 2026-09-08 14:19
 - Find phone: not used
 
 ## Open items
 - Publish the DMARC record (p=none to start), then re-run step 7.
-- 66 verified contacts is below the 100 target. Decision: launch on 66 and treat
-  4 replies as the scale threshold, rather than delay two weeks to source more.
+- 149 valid contacts for a pilot of 100. Decision: launch on the 100 whose title fits
+  the ICP best, and keep the other 49 for the next wave rather than drop them.
 ```
 
-Note in the log what you did **not** do. "71 emails found out of 104" is the useful
+Note in the log what you did **not** do. "158 emails found out of 251" is the useful
 line. "List enriched" is not.
 
 ## Checks before finishing
@@ -276,7 +280,8 @@ line. "List enriched" is not.
 - Every step has a line in `outreach/pilot.md` with a status and a date.
 - No credit was spent without a recorded yes from the user, with the count stated
   first.
-- The contacts attached to the campaign are only addresses that verified `valid`.
+- The contacts attached to the campaign are only addresses that are `valid`: returned
+  `valid` by the finder, which verified them, or confirmed `valid` by the verifier.
 - The deliverability gate passed on its own terms, and you can name SPF, DKIM, DMARC,
   warmup and the daily cap.
 - The user typed a yes for the launch itself, separately from the yes for spending.
@@ -322,7 +327,7 @@ resolve a difference smaller than roughly a factor of two. It cannot validate an
 nobody has bought yet: if three different messages to three fresh lists of 100 all
 return nothing, the problem is upstream of outreach and more sending will not find it.
 It does not place calls and it does not run LinkedIn steps unless that integration is
-already connected. It cannot build the campaign steps through the API: it produces the
-spec and the copy, and verifies that what was configured in the app matches. And the
-100 contacts it uses are spent: re-emailing the same people with a better message is a
-worse test than emailing 100 new ones.
+already connected. It cannot connect a sending mailbox or subscribe for you: those two
+happen in the Emelia app, while everything else about the campaign is built through the
+API. And the 100 contacts it uses are spent: re-emailing the same people with a better
+message is a worse test than emailing 100 new ones.

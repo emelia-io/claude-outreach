@@ -15,8 +15,9 @@ report numbers that add up.
 - **The batch**: up to 100 rows, each with a stable `row_id`, and the fields the
   operation needs. Usually a slice of `outreach/leads.csv`.
 - **The operation**: exactly one of `find_email`, `find_phone`, `verify_email`.
-- **A credit budget**: a hard number of billable calls you may make. It is a
-  ceiling, not a target.
+- **A credit budget**: a hard number of credits you may spend. It is a ceiling, not
+  a target. Before you start a job, check the budget can still take its worst case,
+  since you cannot know in advance which lookups will find.
 - **An output path**: normally `outreach/enrichment-<operation>-<batch>.json`.
 
 The user has already agreed to the total spend before you were spawned. You do not
@@ -29,7 +30,8 @@ Check the rows are worth spending on. Skip and report, do not spend, when:
 
 - The row already has a value for the field you would find, unless you were told
   to refresh.
-- `find_email`: `fullname` or `companyName` is empty. Both are required.
+- `find_email`: `fullname` or `companyName` is empty. Both are required, and so is
+  `country`: take it from the row, and ask the parent once if the batch has none.
 - `find_phone`: `linkedin_url` is empty. It is the only input the phone finder
   takes, so a row without it can never be found.
 - `verify_email`: `email` is empty or fails a syntax check.
@@ -58,13 +60,14 @@ Poll every 2 seconds. The three pairs:
 
 | Start the job | Read the result | Required body |
 |---|---|---|
-| `POST /tools/find/email` | `GET /tools/find/email/{jobId}` | `fullname`, `companyName`, plus optional `companyWebsite` and `country` |
+| `POST /tools/find/email` | `GET /tools/find/email/{jobId}` | `fullname`, `companyName` and `country`, which is required in practice whatever the schema says, plus optional `companyWebsite`. A field named `domain` is refused |
 | `POST /tools/find/phone` | `GET /tools/find/phone/{jobId}` | `linkedinUrl` |
 | `POST /tools/verify/email` | `GET /tools/verify/email/{jobId}` | `email` |
 
 What comes back when the job is done:
 
-- find email: `email` plus `qualification`, which is `valid` or `invalid`.
+- find email: `email` plus `qualification`, which is `valid`, `risky` or `invalid`. A
+  `valid` is already verified; a `risky` is the one worth a verification.
 - find phone: `phoneNumber` plus `qualification`, which is `found` or `not_found`.
 - verify email: `qualification`, which is `valid` or `invalid`.
 
@@ -76,7 +79,7 @@ second time. Poll the id you already have.
 The same three operations exist as tools that do the polling for you:
 
 ```
-find_email    { fullname, companyName, companyWebsite?, country? }
+find_email    { fullname, companyName, country, companyWebsite? }
 find_phone    { linkedinUrl }
 verify_email  { email }
 ```
@@ -130,25 +133,27 @@ A JSON file at the path you were given:
   "found": 58,
   "not_found": 34,
   "errors": 2,
-  "credits_spent": 94,
-  "budget_remaining": 6,
+  "credits_spent": 58,
+  "budget_remaining": 42,
   "pending_jobs": [{ "row_id": "0042", "job_id": "6f2a...", "type": "find_email" }],
   "rows": [
     { "row_id": "0001", "email": "jean.dupont@acme.fr", "qualification": "valid", "credits": 1 },
-    { "row_id": "0002", "email": null, "qualification": "invalid", "credits": 1 },
+    { "row_id": "0002", "email": null, "qualification": "invalid", "credits": 0 },
     { "row_id": "0003", "skipped": "no company name", "credits": 0 }
   ]
 }
 ```
 
-`credits_spent` counts billable calls, one per attempted row. The credit is taken
-when the job starts, not when it succeeds, so a row that comes back `invalid` or
-`not_found` cost exactly as much as one that found somebody. That is why skipping
-unusable rows before you call is the only way to spend less.
+`credits_spent` is what the account kept. On `find_email` the credit is taken when the
+job starts and given back when it finds nothing: a miss is refunded, so only the rows
+found cost, 58 here and not 94. `verify_email` is charged whatever the answer. For
+`find_phone`, take the rate from the `outreach-find-phone` skill. Skipping unusable
+rows before you call still matters: every job you start holds its credit until it ends,
+and a verification is never given back.
 
 Report the number as units of that operation, not in euros: you do not know the
 user's price per credit unless they told you, and inventing one is worse than
-saying "94 email finder credits".
+saying "58 email finder credits".
 
 ## What you return to the parent
 
@@ -160,7 +165,7 @@ operation: find_email
 batch: leads-0001-0100
 attempted 94 / skipped 6 / found 58 / not found 34 / errors 2
 hit rate: 61.7% of attempted, 58.0% of the batch
-credits spent: 94 of a 100 budget
+credits spent: 58 of a 100 budget, the misses refunded
 pending: 1 job still running (row 0042, jobId 6f2a...)
 ```
 

@@ -112,11 +112,19 @@ Field rules:
 - `lead_id`: `<source>:<id at the source>`, for example `basile:64f0a...` or
   `linkedin:jane-doe-1a2b`. For a CSV without an id, use `csv:<line number>`. It must be
   stable across re-runs so a second pass can be merged rather than duplicated.
+- `first_name`, `last_name`: normalise the case. Registry and scraped exports often carry
+  names in capitals (`JEAN`, `MARIE CLAIRE`), and "Bonjour JEAN" ruins an email. The
+  recommended rule: one capital per part and the rest in lowercase, where a part is what
+  a space, a hyphen or an apostrophe separates. `JEAN` becomes `Jean`, `jean-pierre`
+  becomes `Jean-Pierre`, `d'angelo` becomes `D'Angelo`. The rule also turns `MacDonald`
+  into `Macdonald` and `de la Fontaine` into `De La Fontaine`, so keep the raw value in
+  an `x_` column (`x_first_name_raw`, `x_last_name_raw`).
 - `full_name`: fill it even when you have first and last, because the Emelia email
-  finder takes `fullname`, not the parts.
-- `email_status`: empty, `found`, `not_found`, `valid` or `invalid`. Emelia returns only
-  `valid` or `invalid` as a qualification, so do not invent `risky` or `catch_all`
-  values here. Leave it empty at this stage.
+  finder takes `fullname`, not the parts. Build it from the normalised parts.
+- `email_status`: empty, `found`, `not_found`, `valid` or `invalid`. Leave it empty at
+  this stage. Emelia's finder qualifies an address `valid`, `risky` or `invalid`, and the
+  enrichment skills record that when they run: do not invent `risky` or `catch_all`
+  values here while sourcing.
 - `phone_status`: empty, `found` or `not_found`. The phone step may write a more precise
   reason in place of `not_found` (for example `no_linkedin_url`, since the phone finder
   needs one); treat any value other than `found` as "no usable number".
@@ -137,12 +145,46 @@ Field rules:
   came from. CSV: `file:<path of the original file>`.
 - `collected_at`: ISO date of the extraction.
 
-How the contract maps onto Emelia later, so you can see why these names exist:
-`first_name` becomes `firstName`, `last_name` becomes `lastName`, `email` becomes
-`email`, `phone` becomes `phone`, `linkedin_url` becomes `linkedinUrlProfile`,
-`company_name` becomes `companyName`, `company_website` becomes `websiteUrl`. Everything
-else becomes a custom variable. `full_name` plus `company_name` is what the email finder
-needs; `linkedin_url` is what the phone finder needs.
+**How the contract maps onto Emelia**, so you can see why these names exist. When the
+contacts are loaded, each column goes under its Emelia key, not under its contract name.
+Emelia resolves a key it does not know by alias, then by what its value looks like,
+before it ever creates a custom variable, so a value sent under the wrong name can land
+in the wrong field. The full resolution order is in
+[outreach-campaign](../outreach-campaign/SKILL.md), section 2.
+
+| Contract column | Emelia key |
+|---|---|
+| `first_name` | `firstName` |
+| `last_name` | `lastName` |
+| `full_name` | `fullName` |
+| `job_title` | `jobTitle` |
+| `seniority` | `seniority` |
+| `email` | `email` |
+| `phone` | `phone`, never `mobilePhone`, or the list shows zero phones and deduplication ignores the number |
+| `linkedin_url` | `linkedinUrlProfile` |
+| `company_name` | `companyName` |
+| `company_domain` | `companyDomain` |
+| `company_website` | `websiteUrl` |
+| `company_linkedin_url` | `linkedinCompanyUrl` |
+| `company_headcount` | `employeeCount`, a number field: send the integer, never a band like `11-50`, which fails the row |
+| `x_headcount_band` | `companySize`, a text field, where a band belongs |
+| `company_industry` | `industry` |
+| `city` | `city` |
+| `country_code` | `country` |
+| `company_siren`, `company_naf`, `segment`, `signal`, and any other column the campaign needs | a custom variable under the same name, **declared first** |
+
+Declaring is one call per variable, `POST /lists/custom-variable` with
+`{"technicalName": "company_siren", "schema": "lead", "displayName": "SIREN"}`. It
+answers 201 when it creates the variable and 422 when it already exists, so it is safe
+to run before every load. A declared name keeps its underscores, and the copy spells it
+as declared: `{{company_siren}}`. Skip the declaration and a SIREN sent as
+`company_siren` lands in `phone`, because the phone pattern is loose enough to take nine
+digits. The bookkeeping columns (`lead_id`, `email_status`, `phone_status`, `source`,
+`source_url`, `collected_at`) stay in the CSV unless the campaign needs them, and then
+they are declared like the rest.
+
+`full_name` plus `company_name` is what the email finder needs; `linkedin_url` is what
+the phone finder needs.
 
 ### 1. Basile, for France
 
@@ -212,11 +254,18 @@ People filters worth knowing, from the public spec (the spec has more, read it):
 | `past_employer`, `past_title`, `skills`, `education` | text | LinkedIn only |
 
 **The trap that costs the most.** Basile merges two people sources, the legal registry
-and LinkedIn. Switching on a registry-only filter drops every LinkedIn profile, and
-switching on a LinkedIn-only filter drops every officer from the registry. So combining
-`mandate_role` with `current_seniority` returns nothing at all, and adding
-`result_is_current` to a title search silently halves a market. Pick one source per
-query when you need source-specific filters, and run two queries if you need both.
+and LinkedIn. A filter that only one source can satisfy restricts the query to that
+source: a registry-only filter (`mandate_role`, `result_is_current`, `nationality`,
+`age`) drops every LinkedIn profile, and a LinkedIn-only filter (`current_seniority`,
+`skills`, `languages`, `education` and the like) drops every officer from the registry.
+So adding `result_is_current` to a title search silently halves a market. Put a filter
+from each source in the same query and you do not get zero: both sources run, each
+filtered only by its own filters, and the answer is their union, with an inflated total
+and a notice in the response (verified on 29 September 2026). `mandate_role` with
+`current_seniority` therefore returns the registry officers of any seniority plus the
+LinkedIn profiles of any mandate, which is neither of the lists you meant. Pick one
+source per query when you need source-specific filters, and run two queries if you need
+both. `siren` restricts nothing: it returns the officers and the employees.
 
 **Two filters that save a detour.** `activity` and `company_headcount` both work
 directly on `/people/find`, meaning sector and size of the employer without querying
@@ -322,8 +371,9 @@ activity[software] + FR + hide_legal_entities        412,900
 |---|---|---|
 | Six figures on a niche ICP | Too broad. Your title terms are matching text inside longer titles, or the sector concept is a catch all | Add `result_role.exclude` (`assistant`, `adjoint`, `stagiaire`, `alternant`, `freelance`), narrow the activity concept, then recount |
 | Adding the title filter barely moved the number | The titles are not filtering. Either they match everything, or the filter is on a source that is not answering | Check the terms with `roles/suggest`, and check you have not mixed a registry-only and a LinkedIn-only filter |
-| Under a few hundred for a national market | Too narrow, usually a source conflict or an over strict size band | Remove one filter at a time and recount to find the rung that collapsed it |
-| Zero, on a query that looks reasonable | Almost always a registry-only filter combined with a LinkedIn-only filter | Split into two queries, one per source |
+| Under a few hundred for a national market | Too narrow, usually a single-source filter that dropped the other source (`result_is_current` drops every LinkedIn profile) or an over strict size band | Remove one filter at a time and recount to find the rung that collapsed it |
+| A total far above what the market can hold, and a notice in the response | A registry-only and a LinkedIn-only filter in the same query: both sources ran, each with its own filters only, and the total is their union | Split into two queries, one per source |
+| Zero, on a query that looks reasonable | A value that matches nothing (a title, a city or a concept id written from memory), or `source`, `with_legal_data` and `with_linkedin_profile` restrictions that between them exclude every source | Check each value with the suggest endpoints, then remove the source restrictions one at a time and recount |
 
 Aim for a plan whose union is roughly **twice** the number of contacts you intend to
 send to. Filtering and enrichment eat the difference: expect to lose rows at your own
@@ -352,14 +402,15 @@ one query along an axis that partitions (department, NAF code, creation year) an
 each piece. Do not re-run the same export hoping for more rows: you would pay again for
 the rows you already have.
 
-Use `POST /people/find` instead only when you want JSON. Be aware of what it does not
-return: the person, their role, their LinkedIn URL and the **name** of their employer,
-but none of that employer's data, no SIREN, no NAF, no headcount. If you build
-`leads.csv` from `/find`, the company columns stay empty. Paginate with
-`paginationToken` from `pagination.nextToken`; page 2 and beyond require an active
-subscription. `idsOnly: true` returns only `{_id, source}` and allows `limit` up to 5000
-on people, which is the cheap way to collect ids before a `POST /people/export` with
-`{"ids": [...]}`. Treat those ids as returned records for billing, because they are:
+Use `POST /people/find` instead only when you want JSON. Be aware of how little it
+returns: the person, their role, their LinkedIn URL and the **name** of their employer.
+Registry rows add the legal name, the SIREN and the legal form; LinkedIn rows add the
+company's LinkedIn page and industry. No website, no domain, no NAF, no headcount, no
+Google data. If you build `leads.csv` from `/find`, most company columns stay empty.
+Paginate with `paginationToken` from `pagination.nextToken`; page 2 and beyond require
+an active subscription. `idsOnly: true` returns only `{_id, source}` and allows `limit`
+up to 5000 on people, which is the cheap way to collect ids before a
+`POST /people/export` with `{"ids": [...]}`. Treat those ids as returned records for billing, because they are:
 `countOnly` is the free mode, `idsOnly` is not a second one.
 
 `POST /companies/find` is the mirror for companies and already merges all three sources
@@ -430,9 +481,10 @@ anything else (capital, legal form, one Google review) and write it into
 `company_headcount`. Leave the cell empty, put `unknown` in `x_headcount_source`, and
 decide explicitly: keep them as their own segment, or drop them and say how many.
 
-**No description, and no company data at all.** A row from `/people/find` has no
-company columns by construction, and a row whose company matched only one source can
-arrive with no sector text and no description. Targeting still works, because the
+**No description, and no company data at all.** A row from `/people/find` carries
+almost no company columns by construction (the employer's name, and a SIREN on registry
+rows), and a row whose company matched only one source can arrive with no sector text
+and no description. Targeting still works, because the
 sector came from the NAF code or the concept id, not from prose. Personalisation does
 not: `outreach-personalize` needs something true to say about the company, and it must
 not invent it. Mark them `x_no_company_context`, count them, and route them to the non
@@ -445,11 +497,15 @@ nothing is charged. `429` `rate_limit_exceeded`, respect the `Retry-After` heade
 https://docs.basile.cc/openapi.yaml rather than trying another filter name.
 
 **Map to the contract.** Read the header line of the export and map by name. Do not
-hardcode column positions, and do not assume a column exists. Fill `source` with
-`basile`, `source_url` with `https://api.basile.cc/people/<id>`, `lead_id` with
-`basile:<id>`, and `segment` with the segment id from `icp.json`. Keep the trade name
-if the export carries one that differs from the legal name, in `x_trade_name`: the
-email finder uses it as its third attempt, and it recovers rows the legal name misses.
+hardcode column positions, and do not assume a column exists. The export starts with a
+UTF-8 byte order mark, so decode it as `utf-8-sig` or the first column name will not
+match. A value that starts with `=`, `+`, `-`, `@`, a tab or a carriage return comes back
+prefixed with a single quote, a guard against spreadsheet formulas, so a phone reads
+`'+33...`: strip that quote when you map it. Fill `source` with `basile`, `source_url`
+with `https://api.basile.cc/people/<id>`, `lead_id` with `basile:<id>`, and `segment`
+with the segment id from `icp.json`. Keep the trade name if the export carries one that
+differs from the legal name, in `x_trade_name`: the email finder uses it as its third
+attempt, and it recovers rows the legal name misses.
 
 ### 2. LinkedIn, through Sales Navigator
 
@@ -500,8 +556,10 @@ the user rather than implying it is automatable, then pick up the result:
 4. Map each row onto the contract. `source` is `linkedin`, `source_url` is the Sales
    Navigator URL, `lead_id` is `linkedin:<the profile slug>`.
 
-Without the MCP server, ask the user to export the list to CSV from the Emelia app and
-run the CSV route below. If your MCP client does advertise a LinkedIn scraping tool,
+Without the MCP server, the same reads go through REST: `GET /lists/list` with
+`?source=linkedin_scrap` (and `search`) finds the list, and
+`GET /lists/list/{listId}/rows` pages through it, 100 rows at a time. Exporting the list
+to CSV from the Emelia app and running the CSV route below works too. If your MCP client does advertise a LinkedIn scraping tool,
 read its declared input schema before calling it and do not assume parameters.
 
 ### 3. A CSV the user already has
@@ -671,9 +729,12 @@ Nothing has been enriched or verified. Next: /outreach filter
 
 ## Failure modes
 
-**Basile returns far fewer people than the company count suggested.** Almost always a
-source conflict: a registry-only filter and a LinkedIn-only filter in the same query
-return the intersection of two disjoint sets. Remove one, or split into two queries.
+**Basile returns far fewer people than the company count suggested.** Usually a
+single-source filter: a registry-only one (`result_is_current`, `mandate_role`) drops
+every LinkedIn profile, a LinkedIn-only one drops every registry officer. Remove it, or
+run the other source as a second query. Mixing a filter from each source is not the
+cause: that returns the union of both sources, with an inflated total and a notice in
+the response.
 
 **Basile returns everything, unfiltered.** A filter was accepted and ignored. The two
 documented cases are `headquarters_region_code`, which is removed at validation, and a

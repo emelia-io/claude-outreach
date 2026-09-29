@@ -59,7 +59,7 @@ stored in a single column, usually `message`. The Emelia step body is then that 
 `{{signature}}`, and from step 2 the opt out link. Nothing else. Three consequences that
 change how you work:
 
-1. **There is no fallback.** A blank `icebreaker` costs a sentence. A blank `message`
+1. **Nothing can fall back.** A blank `icebreaker` costs a sentence. A blank `message`
    sends an empty email. Coverage has to be 100%, and any row you cannot write for gets
    removed from the list, not left blank.
 2. **The checker cannot see the copy.** `scripts/check-copy.py` reads `sequence.md`, which
@@ -163,8 +163,12 @@ record linked to the contact. Contact fields resolvable by name include `firstNa
 `lastName`, `fullName`, `email`, `phone`, `mobilePhone`, `jobTitle`, `seniority`,
 `department`, `language`, `linkedinUrlProfile`, `country`, `region`, `city`,
 `companyName`. Company fields collide with contact fields for `country` and `city`, so
-use `{{companyCountry}}` and `{{companyCity}}` when you mean the company. Any other
-name you send with a contact becomes a custom variable automatically.
+use `{{companyCountry}}` and `{{companyCity}}` when you mean the company. Any other key
+you send with a contact is resolved on import in a set order, standard fields and their
+aliases first, then the value itself, and it does not always become a custom variable:
+a SIREN sent under an undeclared name lands in `phone`. Declare your custom variables
+before loading, as [outreach-campaign](../outreach-campaign/SKILL.md) section 2 explains,
+and write the copy with the name you declared.
 
 **What happens when nothing matches: you get an empty string.** Not an error, not the
 raw token. The sentence simply loses its middle and the email goes out anyway. This is
@@ -187,7 +191,10 @@ Hi {# firstName | default: "there" #},
 ```
 
 Order of evaluation, which explains the traps below: `{{ }}` variables are substituted
-first, then Liquid runs, then spintax runs last.
+first, then Liquid runs, then spintax runs last. Liquid runs on email and LinkedIn steps
+alike, against the contact and its custom fields, verified against the sending engine on
+29 September 2026. A filter inside double braces is not Liquid:
+`{{ firstName | default: "" }}` does not work, and the default belongs in `{# #}`.
 
 Five rules that follow from that:
 
@@ -210,6 +217,10 @@ One more trap worth knowing: if a Liquid tag is malformed, Emelia catches the er
 **deletes every `{% ... %}` and `{# ... #}` block in the message** rather than failing
 loudly. You get no warning, you get a message with the conditional paragraph missing.
 Preview every Liquid tag on a real contact before sending.
+
+A fallback is a net, not a plan. A default on a field that should be full hides a
+loading problem instead of showing it, so fill the data first and keep the fallback for
+the rows that genuinely cannot carry it.
 
 **What the value must never contain.** The step body is three blocks: your variable, then
 `{{signature}}` on its own line, then the opt out link from step 2 on. So a generated

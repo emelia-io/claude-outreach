@@ -327,8 +327,12 @@ complete_manual_task { "campaignId": "...", "contactId": "...", "taskId": "...",
 
 `ko` marks it failed and lets the sequence move on. Only mark `ok` for something that
 actually happened: the sequence continues from there, and a false `ok` sends the next
-step to someone who never got the previous one. These two tools have no documented REST
-equivalent, so without MCP the tasks are handled in the app.
+step to someone who never got the previous one. Without MCP, the same two things exist
+over REST, like the other campaign routes of the dispatcher, outside the public
+documentation: `GET /advanced/campaigns/{id}/manual-tasks` lists the tasks and
+`POST /advanced/campaigns/{id}/manual-tasks/status` sets one (checked on 29 September
+2026). This repository does not describe the body of that second call yet: prefer the
+MCP tool, or close the task in the app, rather than guessing its fields.
 
 ## Output
 

@@ -108,19 +108,30 @@ file. The full surface, which is all there is:
 | `POST /tools/find/phone` then `GET /tools/find/phone/{jobId}` | Find a mobile from `linkedinUrl` |
 | `POST /tools/verify/email` then `GET /tools/verify/email/{jobId}` | Verify one address |
 | `GET /lists/list`, `POST /lists/list` | Read the lists with their columns, create one. Returns `listId` |
-| `POST /lists/list/{listId}/contacts/batch` | Load up to 100 contacts per call, `?updateIfExists=true` to re-run safely |
+| `POST /lists/custom-variable` | Declare a custom variable before loading contacts: `{technicalName, schema, displayName}`, `schema` being `lead` or `company`. 201 when created, 422 when it already exists, so it is safe to call every time |
+| `GET /lists/custom-variable/check` | `?technicalName=...&schema=lead`, whether that custom variable exists |
+| `POST /lists/list/{listId}/contacts/batch` | Load up to 100 contacts per call, `?updateIfExists=true` to re-run safely (a query parameter, never a body key) |
 | `GET /lists/list/{listId}/rows` | Read the contacts back, paginated, `pageSize` caps at 100 |
 | `POST /advanced/lists/contacts` | Add one contact to a list, for a single row, never for a file |
-| `POST /advanced/campaign/contacts` | Add a contact straight into an email campaign, with custom fields |
+| `POST /advanced/campaign/contacts` | Add a contact straight into a campaign, with custom fields |
 | `PATCH /advanced/contacts` | Set a custom field on a contact |
-| `POST /advanced/campaigns` | Create a campaign. Takes a `name` and nothing else |
+| `POST /advanced/campaigns` | Create a campaign from a `name`: email, LinkedIn or both. The routes in the next table then set its steps, settings, list and sending accounts |
 | `GET /advanced/campaigns` | List campaigns |
 | `GET /advanced/campaigns/{campaignId}/activities` | Activity feed: sent, opened, clicked, replied, bounced |
 | `POST /emails/reply` | Reply to a reply: `messageId`, `providerId`, `to`, `subject`, `content` |
 | `POST` and `DELETE /emails/blacklists/contact` | Add or remove an address from the blacklist |
-| `POST /linkedin/campaigns`, `GET /linkedin/campaigns` | LinkedIn campaigns |
-| `POST` and `DELETE /linkedin/campaign/contacts` | Contacts in a LinkedIn campaign |
-| `POST /linkedin/lists/contacts`, `PATCH /linkedin/contacts` | LinkedIn lists and custom fields |
+| `GET /linkedin/campaigns` | Legacy. LinkedIn campaigns of the old platform |
+| `POST` and `DELETE /linkedin/campaign/contacts` | Legacy. Contacts in an old platform LinkedIn campaign, profile URL as `linkedinUrlProfile` |
+| `POST /linkedin/lists/contacts`, `PATCH /linkedin/contacts` | Legacy. Old platform LinkedIn lists (profile URL as `url`) and custom fields |
+
+**Every campaign you create is an advanced campaign**, `POST /advanced/campaigns`, and
+that includes a LinkedIn only campaign and a plain sequence of four emails. The channel
+is decided by the step tree you push afterwards, not by the route. The old platform
+routes (`POST /emails/campaigns`, `POST /linkedin/campaigns`) still create campaigns
+there: never call them. The legacy rows above are kept to read and manage a campaign
+that already exists on the old platform. When you meet one, suggest moving it to an
+advanced campaign built from the matching template in `outreach-sequence`
+(`pure-linkedin` or `linkedin-premium-or-sales-navigator` for a LinkedIn only one).
 
 Rate limits, per minute and per key: 30 without a subscription, 100 on Start, 300 on
 Grow, 1000 on Scale. Batch and pace accordingly.
@@ -128,16 +139,18 @@ Grow, 1000 on Scale. Batch and pace accordingly.
 ### Building and launching a campaign, end to end
 
 These routes are not in the public documentation yet, and they were verified against
-the live API on 8 September 2026 with a plain API key. They are what makes the whole
+the live API on 8 September 2026 with a plain API key, then their behaviour checked
+again against the product on 29 September 2026. They are what makes the whole
 pipeline programmable, so use them, and tell the user they are not contractual yet.
 
 | Method and path | What it does |
 |---|---|
 | `GET /advanced/campaigns/{id}` | The full campaign: status, steps, schedule, recipients, identities |
-| `PATCH /advanced/campaigns/{id}/steps` | Set the sequence. The body wraps the sequence in an object, not an array |
-| `PATCH /advanced/campaigns/{id}/settings` | Schedule, daily volumes, tracking, stop conditions, wrapped in `settings` |
-| `PATCH /advanced/campaigns/{id}/recipients` | Attach lists (`lists`) and exclusion lists (`excludedLists`) |
-| `PATCH /advanced/campaigns/{id}/identities` | Choose the sending accounts |
+| `PATCH /advanced/campaigns/{id}/steps` | Set the sequence, `{"steps": {...}}`: an object, not an array. Replaces the whole tree |
+| `PATCH /advanced/campaigns/{id}/settings` | Schedule, daily volumes, tracking, stop conditions, wrapped in `settings`. Merged into the current schedule: a field you omit keeps its value. `trackLinks`, `trackOpens`, `blacklistUnsub`, `start` and `end` go in every call |
+| `PATCH /advanced/campaigns/{id}/recipients` | Attach lists (`lists`) and exclusion lists (`excludedLists`). Both arrays replace what was there |
+| `PATCH /advanced/campaigns/{id}/identities` | Choose the sending accounts. Replaces the list |
+| `PATCH /advanced/campaigns/{id}/name` | Rename it, `{"name": "..."}` |
 | `POST /advanced/campaigns/{id}/test-email` | Send yourself a test before launching |
 | `POST /advanced/campaigns/{id}/start` and `/pause` | Launch and pause. No body |
 | `PATCH /advanced/campaigns/{id}/planned-start` | Schedule the launch for later |
@@ -289,7 +302,9 @@ are working, not a property of the task.
 
 The same rule applies inside Emelia, because that is where the user will look. **Create
 the campaign early and let it fill up in the open.** Create it as soon as you know the
-name, with the state in the name in parentheses, and rename it as the run advances:
+name, with the state in the name in parentheses, and rename it as the run advances,
+with `PATCH /advanced/campaigns/{id}/name` and `{"name": "..."}` (a `name` inside the
+settings body renames it too):
 
 ```
 Croitr pilote 1 (en attente des contacts)

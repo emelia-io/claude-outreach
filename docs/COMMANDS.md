@@ -166,8 +166,8 @@ plus a company. Runs on `POST /tools/find/email` and its job result endpoint.
   `outreach/enrichment.json` with the counters and the cost.
 - **Skill** [`outreach-find-email`](../skills/outreach-find-email/SKILL.md)
 - **Agent** [`outreach-enricher`](../agents/outreach-enricher.md), one per batch
-- **Credits** yes, one per row attempted, whether or not the address is found.
-  The count and the cost are stated before anything runs.
+- **Credits** yes, one per address found: a miss is refunded. The count and the
+  worst case cost are stated before anything runs.
 - **Stops** yes, on the cost.
 
 ```
@@ -214,9 +214,10 @@ an unverified list, not warned about.
 ## `/outreach enrich <list>`
 
 The whole waterfall in the right order: filter, then find what is missing, then
-verify what was found, then decide what is sendable. Use this instead of running
-`find-email` and `verify` by hand, because it will not verify an address it just
-found as invalid, and it will not find an address for a row the filter dropped.
+verify only the addresses you brought and the finds qualified `risky`, then decide
+what is sendable. Use this instead of running `find-email` and `verify` by hand,
+because it will not pay to verify an address the finder already returned `valid`, and
+it will not find an address for a row the filter dropped.
 
 - **Argument** `<list>`: path to a CSV. Defaults to `outreach/leads.csv`.
 - **Reads** `outreach/leads.csv`, `outreach/icp.json`, `EMELIA_API_KEY`
@@ -276,7 +277,7 @@ reported as such.
 
 Designs the flow rather than the words: how many steps, on which channel, how many
 days apart, what stops a contact, which step carries the A/B test, what the daily
-volume works out to. Produces the spec you will build once in the Emelia app.
+volume works out to. Produces the spec that `/outreach campaign` pushes through the API.
 
 - **Argument** `<spec>`: free text, for example `"4 steps over 12 days, email only"`.
   Omit it and it proposes a flow from the segment and the volume.
@@ -314,11 +315,12 @@ NO GO. `/outreach campaign` calls this first and will not launch past a NO GO.
 
 ## `/outreach campaign <spec>`
 
-Creates the campaign in Emelia and pushes the contacts into it. Read this before you
-run it: **the API creates a campaign, not a sequence.** `POST /advanced/campaigns`
-takes a name and nothing else. Steps, schedule and sending accounts are built once
-in the Emelia app. After that, contacts added to the attached list enter the running
-campaign on their own, and that is the part this command automates.
+Creates the campaign in Emelia and builds it through the API: always an advanced
+campaign (`POST /advanced/campaigns`), email, LinkedIn or both, then the steps, the
+schedule, the list and the sending accounts, then the pre-flight. It starts the
+campaign (`POST /advanced/campaigns/{id}/start`) only after your explicit yes, or you
+press Launch in the app yourself. After that, contacts added to the attached list
+enter the running campaign on their own.
 
 - **Argument** `<spec>`: the campaign name, or nothing to use the one in
   `outreach/campaign.json`.
@@ -396,8 +398,10 @@ and offers a suffixed name (`leads-q4.csv`) instead.
 
 ## Running without keys
 
-With no `EMELIA_API_KEY`, everything that does not touch Emelia still works: ICP,
-need Emelia run in dry run: they produce their file, state what they would have
+With no `EMELIA_API_KEY`, everything that does not touch Emelia still works: the
+offer, the ICP, the list from Basile or a CSV, the filter, the copy, the sequence and
+the audit of a sequence file. The commands that need Emelia run in dry run: they
+produce their file, state what they would have
 called and what it would have cost, and change nothing. See
 [SETUP.md](SETUP.md) for the keys and [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for
 when one of them stops working.

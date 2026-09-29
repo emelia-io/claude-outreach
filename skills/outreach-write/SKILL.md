@@ -615,15 +615,22 @@ paragraphs is `<p></p>`. A newline character does nothing: write `\n` in the bod
 the whole email renders as one run-on block. This is the most common way a well written
 sequence arrives looking careless.
 
-**Only double braces.** `{{firstName}}`. Nothing else. Not `{# firstName #}`, not
-`{{ firstName | default: "" }}`, not a Liquid tag, not a filter.
+**Variables are double braces, with nothing but the name inside.** `{{firstName}}`. A
+filter inside double braces, `{{ firstName | default: "" }}`, is not Liquid and does not
+work.
 
-**There is no fallback.** You cannot supply a default value for a variable, so do not
-write anything that pretends you can. An unresolved variable renders as **nothing**,
-silently. That is precisely why a sentence must still read correctly when the variable
-comes back empty, and why "Hi {{firstName}}," on a row with no first name ships as
-"Hi ,". Check the column is filled on every row instead of reaching for a default that
-does not exist.
+**A fallback is written in Liquid, and filled data still beats it.** An unresolved
+variable renders as **nothing**, silently, which is why "Hi {{firstName}}," on a row with
+no first name ships as "Hi ,". Emelia runs Liquid after the double braces are
+substituted, on email and on LinkedIn, with `{#` and `#}` as its output tag and the usual
+`{% %}` tags (verified against the sending engine on 29 September 2026). So
+`Hi {# firstName | default: "there" #},` works, and so does
+`{% if icebreaker %}...{% endif %}`. Two cautions. A malformed Liquid tag makes the
+engine delete every Liquid block of the message without a word, so preview each one on a
+real contact before the launch. And a default hides a column you should have filled:
+check the column is filled on every row first, and keep the fallback for the rows you
+genuinely cannot fill. The syntax and its traps are in
+[outreach-personalize](../outreach-personalize/SKILL.md), section 4.
 
 **The greeting lives in the message, not in the editor.** In Mode A the step body is the
 carrier variable and nothing else, so "Bonjour Marie," has to be inside the generated
@@ -722,6 +729,8 @@ this order, and say that you checked by hand.
 | Links | 0 or 1 in step 1, 1 per step after | FAIL |
 | Images | none, the open pixel is already one | FAIL |
 | Variables | every `{{name}}` is a column of `leads.csv` or an Emelia contact field | FAIL |
+| Filter in double braces | a pipe or a `default:` inside `{{ }}`, which does not work | FAIL |
+| Liquid block | a `{# #}` or `{% %}` block, to preview on a real contact | INFO |
 | Variable in subject | must carry a fallback | WARN |
 | Spam trigger words | one is a smell, three in one email is a stack | WARN then FAIL |
 | Questions | one question mark per email | FAIL |
@@ -806,15 +815,12 @@ Hi {# firstName | default: "there" #},
 
 {{icebreaker}}
 
-Most teams that ship a public API hear about a broken response from a customer
-first. The uptime check returns 200, the payload changed underneath it, and the
-support ticket arrives before the alert does.
+Most teams with a public API hear about a broken response from a customer
+first: the check returns 200 while the payload changed underneath it.
 
-Kestrel Pay caught a schema regression 40 minutes before their first ticket last
-quarter. That gap is the only reason they still pay us.
+Kestrel Pay caught a schema regression 40 minutes before their first ticket.
 
-Is response level monitoring owned by someone at {{companyNameClean}} today, or
-is it still on the list?
+Is response level monitoring owned by someone at {{companyNameClean}} today?
 
 {{signature}}
 ```

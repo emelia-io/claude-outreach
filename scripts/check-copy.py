@@ -9,6 +9,12 @@ One directive is read from the file header, and it is optional:
                        the default, which is none on step 1 and one from step 2 on.
 A Mode A step, whose body is a carrier variable holding the whole message, is detected
 from the body itself: the copy checks are skipped there and reported as skipped.
+
+Variables are {{name}}. A filter inside double braces ({{ name | default: "" }}) does
+not work and is a FAIL. Liquid runs after the double braces, with {# #} as its output
+tag and the usual {% %} tags: those are allowed, their variables are checked, and each
+step that uses them gets an INFO line asking for a preview on a real contact, because
+a malformed tag silently deletes every Liquid block of the message.
 """
 import csv, pathlib, re, sys
 SEQ, LEADS = sys.argv[1], sys.argv[2]
@@ -16,6 +22,18 @@ ROOT_VARS = set("""firstName lastName fullName email secondaryEmail phone mobile
 seniority department gender age language linkedinUrlProfile twitterUrl country region city
 postalCode address timezone yearsOfExperience education bio companyName companyCity
 companyCountry websiteUrl unsubscribe_link signature UNIQUE_ID""".split())
+# the linked company's own fields, reached after the contact and its custom variables,
+# the same set scripts/preflight-campaign.py accepts
+ROOT_VARS |= set("""companyDomain logoUrl industry companySize employeeCount foundedYear
+annualRevenue linkedinCompanyUrl notes tags""".split())
+# The columns of the outreach-leads contract that Emelia stores under another name once
+# loaded. {{first_name}} passes against the CSV header but renders empty in Emelia.
+CONTRACT_TO_EMELIA = {"first_name": "firstName", "last_name": "lastName",
+    "full_name": "fullName", "job_title": "jobTitle", "linkedin_url": "linkedinUrlProfile",
+    "company_name": "companyName", "company_domain": "companyDomain",
+    "company_website": "websiteUrl", "company_linkedin_url": "linkedinCompanyUrl",
+    "company_headcount": "employeeCount", "company_industry": "industry",
+    "country_code": "country"}
 # checked by their own rule below, so the generic "unknown variable" rule leaves them alone
 CASE_FREE = {"unsubscribe_link", "unique_id", "signature"}
 SPAM = """free,100% free,risk free,no cost,guarantee,guaranteed,act now,urgent,limited time,
@@ -31,6 +49,11 @@ UNSUB_ANCHOR = re.compile(
     re.I | re.S)
 UNSUB_VAR = re.compile(r"\{\{\s*unsubscribe_link\s*\}\}", re.I)
 SIGNATURE = re.compile(r"\{\{\s*signature\s*\}\}")          # lowercase only, on purpose
+PLAIN_VAR = re.compile(r"\{\{\s*[A-Za-z0-9_]+\s*\}\}")
+# {{ firstName | default: "" }} is not Liquid: the double braces take a name and nothing else
+FILTER_IN_BRACES = re.compile(r"\{\{[^{}]*(?:\||\bdefault\s*:)[^{}]*\}\}")
+LIQUID = re.compile(r"\{#|\{%")
+LIQUID_TAG_VAR = re.compile(r"\{%-?\s*(?:if|unless|elsif)\s+([A-Za-z0-9_]+)")
 NOT_EMAIL = ("linkedin", "call", "task", "visit", "invitation",
              "connection", "inmail", "audio", "voice", "sms")
 text = open(SEQ, encoding="utf-8").read()
@@ -120,11 +143,25 @@ for s in steps:
     if links > 2: say("FAIL", n, f"{links} links, keep 1 per step")
     if re.search(r"<img|!\[", body): say("FAIL", n, "image in the body, the open pixel is already one")
     for v in set(re.findall(r"\{\{\s*([A-Za-z0-9_]+)\s*\}\}", body + " " + sub)):
-        if v not in cols and v not in ROOT_VARS and v.lower() not in CASE_FREE:
+        if v in CONTRACT_TO_EMELIA:
+            say("FAIL", n, f"variable {v} is the CSV column name: Emelia stores it as "
+                           f"{CONTRACT_TO_EMELIA[v]}, so write {{{{{CONTRACT_TO_EMELIA[v]}}}}}")
+        elif v not in cols and v not in ROOT_VARS and v.lower() not in CASE_FREE:
             say("FAIL", n, f"variable {v} is not a column of leads.csv nor an Emelia field")
-    for v in set(re.findall(r"\{#\s*([A-Za-z0-9_]+)", body + " " + sub)):
-        if v not in cols and v not in ROOT_VARS: say("FAIL", n, f"Liquid variable {v} does not exist")
-    if "{{" in sub and "|" not in sub and "{#" not in sub:
+    for bad in sorted(set(FILTER_IN_BRACES.findall(body + " " + sub))):
+        say("FAIL", n, f"{bad} puts a filter inside double braces, which does not work. "
+                       "Write {{name}}, or a Liquid default: {# name | default: \"...\" #}")
+    liquid_vars = set(re.findall(r"\{#\s*([A-Za-z0-9_]+)", body + " " + sub))
+    liquid_vars |= set(LIQUID_TAG_VAR.findall(body + " " + sub))
+    for v in liquid_vars:
+        if v in CONTRACT_TO_EMELIA:
+            say("FAIL", n, f"Liquid variable {v} is the CSV column name: Emelia stores it "
+                           f"as {CONTRACT_TO_EMELIA[v]}")
+        elif v not in cols and v not in ROOT_VARS: say("FAIL", n, f"Liquid variable {v} does not exist")
+    if LIQUID.search(body + " " + sub):
+        say("INFO", n, "Liquid block, preview it on a real contact: a malformed tag silently "
+                       "deletes every Liquid block of the message")
+    if PLAIN_VAR.search(sub) and "{%" not in sub:
         say("WARN", n, "variable in the subject with no fallback, empty values leave a gap")
     if is_email:
         # the signature block, lowercase only: {{Signature}} silently renders nothing

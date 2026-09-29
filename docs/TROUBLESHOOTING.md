@@ -10,7 +10,7 @@ starts with how to tell it apart from the failure it looks like.
 | A find or verify that returns `status: running` and stays there | [An enrichment job that never finishes](#an-enrichment-job-that-never-finishes) |
 | The campaign exists in Emelia but sends nothing | [The campaign will not start](#the-campaign-will-not-start) |
 | Delivered, opened by nobody, replies at zero | [Emails going to spam](#emails-going-to-spam) |
-| Recipients received a literal `{{first_name}}` | [Variables that did not resolve](#variables-that-did-not-resolve) |
+| Recipients received `Bonjour ,`, a gap where a variable should be | [Variables that did not resolve](#variables-that-did-not-resolve) |
 | 12,000 rows in, 0 rows out | [An empty list after filtering](#an-empty-list-after-filtering) |
 
 ---
@@ -95,9 +95,11 @@ be until the balance is topped up. Stop the batch rather than retrying it row by
 a hundred rows against an empty balance is a hundred failures and ten wasted minutes.
 
 Worth knowing before you argue with an invoice: **the credit is taken when the job
-starts, not when it succeeds.** A find that comes back `invalid` or `not_found` cost
-the same as one that found somebody. That is why filtering first, and skipping rows
-that can never be found, is where the money is saved.
+starts, and the email finder gives it back when it finds nothing.** An email lookup
+that misses costs nothing in the end, while a verification is charged whatever the
+answer. That is why filtering first, and skipping rows that can never be found, is
+where the money is saved: every job holds its credit while it runs, and every
+verification keeps it.
 
 Basile has three of these and they mean different things:
 
@@ -162,11 +164,15 @@ is also why you should not delete it after a run.
 Go through these in order. The first one is the answer far more often than the rest
 put together.
 
-1. **The campaign has no steps.** `POST /advanced/campaigns` creates a campaign with
-   a name and nothing else. Steps, delays, schedule and sending accounts are built in
-   the Emelia app. A campaign with no steps is a valid campaign that sends nothing,
-   and it looks exactly like a broken one. Build the sequence in the app, then start
-   it.
+1. **The campaign has no steps, or was never started.** `POST /advanced/campaigns`
+   creates a campaign with four empty steps and a default schedule; the steps, the
+   schedule, the list and the sending accounts are set afterwards with the `PATCH`
+   routes, which `/outreach campaign` does. A campaign with empty steps is a valid
+   campaign that sends nothing, and it looks exactly like a broken one. Read it back
+   with `GET /advanced/campaigns/{id}`: the steps must be there, and `status` must be
+   `RUNNING`. A campaign left in `DRAFT` was never started: start it with
+   `POST /advanced/campaigns/{id}/start`, after an explicit yes, or with Launch in the
+   app.
 
 2. **The contacts went into a list the campaign does not use.** Adding a contact to a
    list only feeds a campaign when that list is attached to it. Check what the
@@ -186,8 +192,9 @@ put together.
    already in the list does not create a second one: the response returns the
    existing `leadId` with `duplicate: true`. That is not an error, and it means your
    thousand new contacts may have been three. Read the `created`, `duplicates`,
-   `updated` and `failed` counts that bulk adds return, and pass `updateIfExists` when
-   you meant to update.
+   `updated` and `failed` counts that bulk adds return, and pass
+   `?updateIfExists=true`, a query parameter and not a body key, when you meant to
+   update.
 
 6. **The address is blacklisted.** A previous unsubscribe or a manual entry on the
    blacklist stops that contact silently. Check with the blacklist endpoint before
@@ -259,19 +266,28 @@ list or the offer, not the spam folder. `/outreach audit` splits it out.
 
 ## Variables that did not resolve
 
-Someone received `Bonjour {{first_name}},`. It is unrecoverable for that contact, so
-the fix is prevention.
+Someone received `Bonjour ,`. A variable that does not resolve renders as an empty
+string, never as the raw token, so the email goes out with a hole in it and nothing
+errors. It is unrecoverable for that contact, so the fix is prevention.
 
 Why it happens, in order of frequency:
 
-1. **The variable is not a column in the list.** The copy uses `{{firstName}}`, the
-   list has `first_name`. Nothing matches, nothing renders.
+1. **The variable is not what the list holds.** The copy uses `{{first_name}}`, the
+   CSV header, while Emelia stored that column as `firstName`. Nothing matches,
+   nothing renders. Write the Emelia name: the mapping is in `outreach-leads`,
+   section 0.
 2. **The variable exists but the cell is empty**, and there is no fallback. Every
-   variable needs one. A variable that can be empty must never sit in a subject line.
-3. **A typo created a new empty variable instead of failing.** Adding a contact with
-   an unrecognized field name creates a custom variable automatically. So
-   `firstNmae` does not error, it quietly creates `firstNmae`, empty for everybody.
-   This is convenient when you mean it and invisible when you do not.
+   variable needs one, written in Liquid (`{# firstName | default: "..." #}`), since a
+   filter inside double braces does not work. A variable that can be empty must never
+   sit in a subject line.
+3. **A typo created a new variable instead of failing.** A key Emelia does not
+   recognise, by name, alias or the look of its value, becomes a custom variable. So a
+   column sent as `firstNmae` does not error: its values go into a new variable, and
+   `{{firstName}}` stays empty for everybody. And a value that looks like an email, a
+   phone number or a URL is placed in the first empty standard field of that kind
+   instead, which is how a SIREN sent under an undeclared name ends up in `phone`.
+   Declare your custom variables first (`POST /lists/custom-variable`, see
+   `outreach-campaign` section 2).
 4. **The custom field was set on the wrong campaign or contact.**
    `PATCH /advanced/contacts` needs `campaignId`, `fieldName`, `fieldValue`, plus
    either `email` or `linkedinUrlProfile` to identify the person. Wrong campaign id,
@@ -281,8 +297,8 @@ Why it happens, in order of frequency:
 
 Prevention, which is what the skills do:
 
-- Build the variable whitelist from the header of `outreach/leads.csv`, and refuse
-  any variable that is not in it.
+- Build the variable whitelist from the header of `outreach/leads.csv`, spelled the
+  way Emelia holds each column, and refuse any variable that is not in it.
 - Give every variable a fallback.
 - Keep the variable count low. More than three in one email reads as a mail merge.
 - Send yourself the first email of the sequence before the campaign goes out. A test

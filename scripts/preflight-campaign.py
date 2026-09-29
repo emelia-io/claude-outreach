@@ -34,8 +34,8 @@ def tls_context() -> ssl.SSLContext:
 TLS = tls_context()
 
 # Resolved from the contact itself. Anything outside this list falls through to the
-# custom variables, then to the linked company. Mirrors CONTACT_ROOT_VARS in the
-# sending engine: a field that exists on the contact but is not here renders empty.
+# custom variables, then to the linked company. Mirrors the list of root fields the
+# sending engine reads: a field that exists on the contact but is not here renders empty.
 ROOT_VARS = {
     "firstName", "lastName", "fullName", "email", "secondaryEmail", "phone",
     "mobilePhone", "jobTitle", "seniority", "department", "gender", "age", "language",
@@ -50,6 +50,13 @@ COMPANY_VARS = {"companyDomain", "websiteUrl", "logoUrl", "industry", "companySi
 
 VAR = re.compile(r"\{\{\s*([A-Za-z0-9_]+)\s*\}\}")
 LIQUID = re.compile(r"\{%|\{#")
+# {{ firstName | default: "" }} is not Liquid and does not work. Liquid itself runs after
+# the double braces are substituted, with {# #} as its output tag and the usual {% %} tags.
+FILTER_IN_BRACES = re.compile(r"\{\{[^{}]*(?:\||\bdefault\s*:)[^{}]*\}\}")
+# A condition field is an activity, or a contact field when it starts with $. Anything
+# else is read as an unknown activity and answers "no" for every contact.
+ACTIVITIES = {"ACCEPTED", "LINKEDIN_REPLIED", "MAIL_REPLIED", "OPENED", "CLICKED",
+              "UNSUBSCRIBED", "BOUNCED", "TASK_COMPLETED"}
 # The activity record casts stepId to an ObjectId. Anything else raises after the
 # message has already been sent, so the send is not logged and gets planned again.
 OBJECT_ID = re.compile(r"^[0-9a-fA-F]{24}$")
@@ -117,6 +124,7 @@ def main() -> int:
 
     # 3. The steps
     used = set()
+    bounce_branch = False
     steps = list(walk(c.get("steps")))
     for st, _ in steps:
         sid = str(st.get("_id") or "")
@@ -131,6 +139,31 @@ def main() -> int:
             if vid and not OBJECT_ID.match(vid):
                 warnings.append(f"version _id {vid!r} on a {st.get('stepType')} step is "
                                 f"not an ObjectId: per variant statistics are lost")
+            for text in (v.get("message") or "", v.get("subject") or ""):
+                for bad in sorted(set(FILTER_IN_BRACES.findall(text))):
+                    blocking.append(f"{st.get('stepType')} step: {bad} puts a filter inside "
+                                    f"double braces, which does not work. A default is "
+                                    f"written in Liquid, {{# name | default: \"...\" #}}")
+        if st.get("stepType") == "MESSAGE" and len(st.get("versions") or []) > 1:
+            warnings.append("several versions on a LinkedIn MESSAGE step: they are all "
+                            "sent, one after another, as sub-messages. Fine if that is "
+                            "what you want, but it is not an A/B test")
+        if st.get("stepType") == "CONDITION":
+            conds = st.get("conditions") or {}
+            for cond in (conds if isinstance(conds, list) else [conds]):
+                field = str((cond or {}).get("field") or "")
+                bounce_branch = bounce_branch or field == "BOUNCED"
+                if field and not field.startswith("$") and field not in ACTIVITIES:
+                    blocking.append(f"condition on {field!r}: neither an activity nor a "
+                                    f"contact field written with a leading $, so it "
+                                    f"answers no for every contact")
+
+    # A stop event is checked before every action, LinkedIn included, so BOUNCED in
+    # eventToStop kills any branch that a BOUNCED condition routes to.
+    stops = (c.get("schedule") or {}).get("eventToStop") or []
+    if "BOUNCED" in stops and bounce_branch:
+        warnings.append("eventToStop holds BOUNCED while a condition branches on BOUNCED: "
+                        "a bounced contact is stopped before that branch runs")
     emails = [(s, n) for s, n in steps if s.get("stepType") == "EMAIL"]
     print(f"steps     {len(steps) - 1} after START, {len(emails)} email")
     for s, n in emails:
@@ -147,16 +180,15 @@ def main() -> int:
                 warnings.append(f"email step {n}: the body contains a newline, which "
                                 f"renders as nothing. Paragraphs are <p>")
             if LIQUID.search(msg):
-                warnings.append(f"email step {n}: the body uses Liquid. It works, but "
-                                f"a default value hides a column you should have filled")
+                warnings.append(f"email step {n}: the body uses Liquid. It works, but a "
+                                f"malformed tag silently deletes every Liquid block of "
+                                f"the message, so preview it on a real contact, and a "
+                                f"default value hides a column you should have filled")
             if n == 1 and not subj.strip():
                 blocking.append("email step 1 has no subject, the first email needs one")
             if n > 1 and "unsubscribe_link" not in msg.lower():
                 warnings.append(f"email step {n}: no opt out link, so no "
                                 f"List-Unsubscribe header on this step")
-        if len(s.get("versions") or []) > 1 and s.get("stepType") != "EMAIL":
-            blocking.append("several versions on a LinkedIn step: they are all sent, "
-                            "one after another, this is not an A/B test")
 
     # 4. Do the variables resolve
     engine = {v for v in used if v.lower() in ENGINE_VARS}

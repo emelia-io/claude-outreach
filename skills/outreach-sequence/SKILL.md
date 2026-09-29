@@ -16,8 +16,8 @@ Turns approved copy into a step tree: which channel touches the prospect, in whi
 order, after how long, under which condition, and when the whole thing stops. It starts
 from one of Emelia's five campaign templates, chosen from what the enrichment actually
 found rather than from preference, then adapts it. It writes `outreach/campaign.json`,
-which is both the spec `outreach-campaign` consumes and the build sheet a human follows
-in the Emelia app.
+which is both the spec `outreach-campaign` pushes through the API and a build sheet a
+human can read and check against the Emelia app.
 
 ## When to use it
 
@@ -44,15 +44,18 @@ mailboxes can carry the volume this schedule implies (`outreach-deliverability`)
 | InMail credits on the LinkedIn seat | the user | Assume none, and cut the InMail step rather than designing a branch that cannot fire |
 | Timezone of the recipients | `outreach/icp.json` or the user | Default `Europe/Paris` for a French list and say you defaulted |
 
-Read the honest constraint first, and tell the user before designing: **the API creates
-a campaign name and nothing else.** `POST /advanced/campaigns` takes `name`. The step
-tree, the schedule and the sending accounts are built once in the Emelia app. This file
-is what makes that build fast and repeatable, and after it exists the skills feed the
-attached list, so every contact added enters the running campaign on its own.
+Tell the user how the build happens before designing: **the whole campaign is built
+through the API.** `POST /advanced/campaigns` creates it from a `name`, then
+`outreach-campaign` pushes the step tree this skill designs
+(`PATCH /advanced/campaigns/{id}/steps`), the schedule (`/settings`), the list
+(`/recipients`) and the sending accounts (`/identities`). Every campaign is built that
+way, a LinkedIn only one included. This file is what makes that build fast and
+repeatable, and after it exists the skills feed the attached list, so every contact
+added enters the running campaign on its own.
 
-The good news about that build: you do not do it from a blank canvas. Emelia offers five
-campaign templates, section 1 says which one your list picks, and the tree it drops in is
-most of the work. Everything after section 1 is how you adapt it.
+And you do not design from a blank canvas. Emelia offers five campaign templates,
+section 1 says which one your list picks, and the tree it drops in is most of the work.
+Everything after section 1 is how you adapt it.
 
 ## How to do it
 
@@ -206,6 +209,13 @@ bounced and who has no LinkedIn profile stops there, silently, with no
 `END_OF_CAMPAIGN`. That is the correct outcome, but add the `END_OF_CAMPAIGN` yourself so
 the report reads as a decision rather than as a step that failed.
 
+**Keep `BOUNCED` out of `eventToStop` with this template.** Before every action of a
+contact, email and LinkedIn alike, the engine stops the contact if one of its activities
+carries a stop event, verified against the sending engine on 29 September 2026. With
+`BOUNCED` in the list, a bounced contact is stopped before the invitation that the
+`BOUNCED` condition routes it to, and the whole bounce branch never runs. Stop on the
+replies and the unsubscribes, and let the branch handle the bounces (section 7).
+
 Do not pick it when your email coverage is partial: the first step is an email, so every
 row without an address is dead on arrival. If that is your list, you wanted
 `linkedin-email`.
@@ -244,11 +254,12 @@ not your CSV headers:
 | `$email` | `email` | the address from `outreach/leads.csv` |
 | `$linkedinUrlProfile` | `linkedinUrlProfile` | the profile URL from `outreach/leads.csv` |
 
-If the LinkedIn URL is imported into a custom field called `linkedin_url` or `linkedin`,
+If the LinkedIn URL ends up in a custom field instead of `linkedinUrlProfile`,
 `$linkedinUrlProfile` is empty on every row. The condition then routes the whole list down
-one branch, no error is raised, and you find out when the invitations never fire. Check
-the mapping on the import screen, and check one contact in the app after the load, before
-you start the campaign.
+one branch, no error is raised, and you find out when the invitations never fire. Send
+the keys under their Emelia names (how a key is resolved is in `outreach-campaign`,
+section 2), and check one contact in the app after the load, before you start the
+campaign.
 
 #### The `campaign.json` for each template
 
@@ -560,13 +571,13 @@ all, and reads as if it worked.
 style preference, it is the difference between a campaign that runs and one that
 silently re-sends.
 
-The `steps` field is stored as `Mixed`, so Mongoose saves whatever shape you send. A
-`_id` of `"e1"`, or a UUID, or anything else, is accepted, saved, and reads back
-perfectly from `GET /advanced/campaigns/{id}`. The campaign looks right in the app.
+The server stores the step tree as it receives it, whatever its shape. A `_id` of
+`"e1"`, or a UUID, or anything else, is accepted, saved, and reads back perfectly from
+`GET /advanced/campaigns/{id}`. The campaign looks right in the app.
 
 It breaks later, at send time. The activity record that logs the send declares
 `stepId` as an **ObjectId**, and it is required. A value that cannot be cast to a
-24 character hex ObjectId raises a CastError, and that write happens **after** the
+24 character hex ObjectId makes that write fail, and the write happens **after** the
 message has left. So the email is sent, the activity is not stored, and from the
 scheduler's point of view the step never happened: it plans it again, and the same
 person receives the same email on the next pass. Every condition that depends on that
@@ -574,16 +585,16 @@ step is stuck too, because it looks for the origin activity and finds nothing, s
 contact waits at the branch forever. From the outside it reads as "all the actions are
 failing".
 
-`versionId` has a rescue setter that turns an uncastable value into `undefined`, so a
-bad version id only costs you the per variant statistics. `stepId` has no such setter.
+A version id that is not an ObjectId is quietly dropped instead, so a bad version id
+only costs you the per variant statistics. A step id gets no such rescue.
 
 Two consequences:
 
-- **A new tree ships without ids.** `ensureStepIds` walks the tree on save, including
-  the `yes` and `no` branches, and generates a real ObjectId for every step and every
-  version that has none. The only `_id` you write by hand is `"START"` on the root,
-  which is the schema's own default and never produces an activity because it is not an
-  action.
+- **A new tree ships without ids.** When you push the steps, the server walks the
+  tree, the `yes` and `no` branches included, and generates a real ObjectId for every
+  step and every version that has none. It keeps an id you wrote, even a bad one. The
+  only `_id` you write by hand is `"START"` on the root, which never produces an
+  activity because it is not an action.
 - **An existing tree keeps the ids it has.** Read it with `GET`, change what you need in
   the object you just read, send the whole thing back. Every activity, every per version
   statistic and every contact's position in the sequence hangs off those ids, and
@@ -620,6 +631,12 @@ field or a custom variable, for example `$jobTitle` or `$icebreaker`. Operators:
 `EQUAL`, `DOES_NOT_EQUAL`, `GREATER`, `LOWER`, `CONTAINS`, `DOES_NOT_CONTAIN`,
 `IS_EMPTY`, `IS_NOT_EMPTY`. This is how you route rows that have an icebreaker down one
 path and rows that do not down another.
+
+**Anything else is read as an activity**, and an activity the engine does not know
+answers `no` for every contact, at once and without an error. `{{email}}` or
+`{{linkedinUrlProfile}}` written as the field is exactly that. Read the conditions of an
+older campaign before you reuse its tree: a field written with double braces sends the
+whole list down the `no` branch.
 
 **The trap that catches everyone: the condition's `delay` is the waiting window, and it
 counts from the originating action, not from the condition.** Each activity has an
@@ -713,8 +730,8 @@ Two fields on an email step that are easy to reach for and worth knowing about:
 | Email 2 and email 3 | 4 to 5 business days | Long enough to be a new conversation, short enough to be remembered |
 | Email 3 and the break-up | 6 to 8 business days | The break-up works because time passed |
 | Profile visit and invitation | 12 to 24 hours | The view must register before the invitation, or it looks like one automated burst |
-| Invitation accepted and first message | at least 24 hours | Messaging within minutes of an acceptance reads as a bot, and it is the fastest way to get reported |
-| Any LinkedIn action and the next one | 1 day minimum | LinkedIn rate limits per account, not per campaign |
+| Invitation accepted and first message | at least one hour, as the Emelia LinkedIn templates do (1 hour to 1 day) | Never within minutes: a message that lands the minute someone accepts reads as a bot, and it is the fastest way to get reported |
+| Two LinkedIn touches that reach the person (invitation, message, InMail) | 1 day minimum | LinkedIn rate limits per account, not per campaign, and two notifications in one day read as a sequence. A like or a visit can come a few hours before a message, which is how the templates use it |
 
 A four step email sequence therefore spans 14 to 21 calendar days. Longer sequences do
 not earn more meetings, they earn unsubscribes.
@@ -758,8 +775,12 @@ Schedule fields and their defaults in Emelia, so you know what you are changing:
 | `eventToStop` | empty | See section 7 |
 
 `trackLinks`, `trackOpens` and `blacklistUnsub` are **required in every call** to
-`PATCH /settings`, even when you are not changing them: the route replaces the whole
-object, so omitting one resets it to its default.
+`PATCH /settings`, even when you are not changing them: the call fails without them.
+Send `start` and `end` as well, since the route reads them on every call, and keep
+`dailyEmailLimit` at or above `dailyEmailAdded`, or it is refused. Everything else is
+merged into the current schedule: a field you leave out keeps its value and is not reset
+to the default above (verified on 29 September 2026). A `name` in the same object
+renames the campaign.
 
 On LinkedIn volume: keep new invitations well under the platform's weekly ceiling. A
 widely used rule of thumb is around 100 invitations per week on an established account,
@@ -800,7 +821,7 @@ its own `_id`, `subject`, `message` and `disabled` flag. Emelia splits the conta
 across the enabled versions, and the activity feed accepts a `versionId` filter, so
 results are attributable per version. Spintax is not: do not confuse the two.
 
-**Up to five variants.** Two is the usual case, five is the ceiling worth running. More
+**Up to six versions per email step**, A to F in the editor. Two is the usual case. More
 variants means more angles tested at once, which is the right move in exactly two
 situations: you have no per row data so personalization is off the table, and you have
 so much volume that writing one message per contact would cost more than it returns.
@@ -857,8 +878,13 @@ gap produces a "winner" by chance often enough that the habit is worse than not 
 
 Two layers. The first is Emelia's, in `schedule.eventToStop`: the events that take a
 contact out of the campaign. A sane default for email plus LinkedIn is
-`["MAIL_REPLIED", "LINKEDIN_REPLIED", "UNSUBSCRIBED", "BOUNCED"]`. Add `CLICKED` only
-when a click means a human takes over. Never add `OPENED`.
+`["MAIL_REPLIED", "LINKEDIN_REPLIED", "UNSUBSCRIBED", "BOUNCED"]`, as long as no
+condition in the tree branches on `BOUNCED`. The engine checks those events before every
+action of the contact, email and LinkedIn alike, so a listed event stops everything that
+comes after it, a LinkedIn fallback included. With `smart-multi-channel`, whose `BOUNCED`
+condition sends bounced contacts to LinkedIn, drop it:
+`["MAIL_REPLIED", "LINKEDIN_REPLIED", "UNSUBSCRIBED"]`. Add `CLICKED` only when a click
+means a human takes over. Never add `OPENED`.
 
 The second layer is yours, and it stops the campaign rather than a contact. Write these
 into `stop_rules` and check them in `outreach-audit`:
@@ -889,7 +915,7 @@ before it does.
 ## Output
 
 `outreach/campaign.json`. Everything under `schedule` and `steps` uses Emelia's own
-field names and values, so it can be read straight into the app or into a future API.
+field names and values, so `outreach-campaign` can push it through the API as it is.
 The blocks outside them (`goal`, `template`, `ab_test`, `stop_rules`, `emelia`) are this
 repository's, and carry the decisions the platform does not store.
 
@@ -927,6 +953,7 @@ repository's, and carry the decisions the platform does not store.
     "dailyLinkedinAdded": 15,
     "trackOpens": false,
     "trackLinks": true,
+    "blacklistUnsub": true,
     "excludeAlreadyMessaged": true,
     "ignoreAutoReplies": true,
     "eventToStop": ["MAIL_REPLIED", "LINKEDIN_REPLIED", "UNSUBSCRIBED", "BOUNCED"]
@@ -1024,8 +1051,8 @@ repository's, and carry the decisions the platform does not store.
     "campaignId": null,
     "listId": null,
     "status": "draft",
-    "built_in_app": false,
-    "note": "POST /advanced/campaigns creates the name only. The tree above is the build sheet for the Emelia app. outreach-campaign creates the campaign and the list, then pushes contacts into the list, and each contact added enters the running campaign."
+    "pushed": false,
+    "note": "outreach-campaign creates the campaign with POST /advanced/campaigns, pushes this tree, the schedule, the list and the identities with the PATCH routes, starts it after an explicit yes, and each contact added to the attached list then enters the running campaign."
   }
 }
 ```
@@ -1065,8 +1092,9 @@ handle a branch, since branches never rejoin.
   contact.
 - `dailyEmailAdded` times the number of days is not larger than the list, and the daily
   volume matches what `outreach-deliverability` allows.
-- `eventToStop` contains at least the replies, unsubscribes and bounces, and does not
-  contain `OPENED`.
+- `eventToStop` contains at least the replies and the unsubscribes, contains `BOUNCED`
+  only when no condition in the tree branches on `BOUNCED`, and does not contain
+  `OPENED`.
 - If an A/B test is declared, `min_contacts_per_version` times the number of versions is
   at most the list size. If it is not, say the test is underpowered and offer to run one
   version instead.
@@ -1078,7 +1106,8 @@ handle a branch, since branches never rejoin.
 `$linkedinUrlProfile` or `$email`, and the import put the value somewhere else, so the
 field is empty on every row. Nothing errors. Open one contact in the app, check the
 field is the standard one and not a custom field with a similar name, and reload the
-list rather than editing the tree.
+list rather than editing the tree. If the field is right on the contacts, read the
+condition itself: written `{{email}}` instead of `$email`, it answers `no` for everybody.
 
 **The LinkedIn half of the campaign never fires.** Check the polarity of the condition
 before anything else. In `smart-multi-channel` the second condition is
@@ -1111,7 +1140,7 @@ design, not after. Email only is a perfectly good sequence.
 **Both A/B versions win, depending on the day.** That is what an underpowered test looks
 like. Go back to the sample size table and either wait or stop calling it a test.
 
-**The campaign is built in the app but contacts do not enter it.** They were added to a
+**The campaign is built but contacts do not enter it.** They were added to a
 list that is not the one attached to the campaign. Check the attached list id before
 pushing anything.
 
@@ -1133,8 +1162,8 @@ This skill does not create anything in Emelia and does not send anything: it wri
 file and a build sheet, and `outreach-campaign` does the rest with an explicit
 confirmation. The five templates are the ones the product shipped on 9 September 2026,
 read from its own template file: if the app shows a sixth, or different delays, trust the
-app and say the skill is behind. It cannot build the step tree through the API, because that endpoint does
-not exist, and it will say so rather than pretending. It does not know your mailbox
+app and say the skill is behind. It does not push the tree itself: `outreach-campaign`
+does, with `PATCH /advanced/campaigns/{id}/steps`. It does not know your mailbox
 capacity: the daily numbers here are proposals that `outreach-deliverability` has the
 final word on. The delay and volume figures are rules of thumb from common practice, not
 measurements from your account, and `outreach-audit` is what replaces them with yours.

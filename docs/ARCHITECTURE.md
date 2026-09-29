@@ -113,14 +113,16 @@ domain returns, and it means nobody can tell you whether that address exists.
 Six gates, and they are the whole point. Four of them protect your money and your
 sender reputation; two protect the people you are about to email.
 
-### The break in the middle, and why it is there
+### The pause in the middle, and why it is there
 
-Between step 7 and step 9 there is something no API can do. `POST /advanced/campaigns`
-creates a campaign with a name and nothing else: steps, schedule and sending accounts
-are configured in the Emelia app. So the flow is not "generate and launch blindly":
+Between step 7 and step 9 the whole campaign is built through the API, and nothing is
+sent until you say so. `POST /advanced/campaigns` creates it, always as an advanced
+campaign, whatever its channels, and the `PATCH` routes set its steps, schedule, list
+and sending accounts. So the flow is not "generate and launch blindly":
 
 1. The skills produce the sequence spec, the copy and the cleaned list.
-2. You build that sequence once in the app, on the campaign, and start it.
+2. `outreach-campaign` builds the campaign from them, runs the pre-flight, and starts
+   it only after your explicit yes (or you press Launch in the app yourself).
 3. The skills push contacts into the list attached to that campaign, and each
    contact added enters the running campaign on its own.
 
@@ -135,7 +137,9 @@ Two transports, and a skill picks in this order.
 
 **REST, `https://api.emelia.io`, header `Authorization: <key>`.** The documented
 surface, and the default. Enrichment jobs, contacts, lists, campaign creation,
-activities, replies, blacklist. This is what every sub-skill assumes.
+activities, replies, blacklist, plus the campaign configuration and launch routes that
+the dispatcher lists and that are not in the public documentation yet. This is what
+every sub-skill assumes.
 
 **The MCP server, `https://mcp.emelia.io/mcp`, when the user configured it.**
 Preferred for what REST does not expose: `get_campaign_stats`, `get_warmup_status`,

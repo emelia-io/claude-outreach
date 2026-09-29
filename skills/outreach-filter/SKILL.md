@@ -234,11 +234,25 @@ one.
 - **No contact key at all.** A row with no email, no LinkedIn URL, and no name plus
   company pair cannot be enriched or contacted. Remove it, reason `no_contact_key`.
 
+**Then read the rows, because the rules miss what is obvious to a person.** Every check
+above is a rule on one field, and a row can pass all of them and still be wrong: the
+right title in the wrong kind of company, such as the regional director of a national
+retail chain when the ICP is independent agencies. Read the rows against the ICP
+yourself, in batches of about fifty (title, company, industry, headcount, city), and cut
+what someone who wrote the ICP would cut. Move each one out with reason `off_target`,
+and list them in the report with a few words on why, so the user can put any of them
+back. On a large list, fan the batches out to parallel agents with the ICP as their
+brief. It costs no credit, and it is the cheapest place to stop a row the enrichment
+would otherwise pay for.
+
 ### 7. Cap the contacts per company
 
 One to three contacts per company is a reasonable ceiling, offered as a rule of thumb.
 Two people at the same company receiving the same template in the same week is the
-fastest way to be discussed internally, and not in your favour.
+fastest way to be discussed internally, and not in your favour. So with one shared text
+for everybody (Mode B in [outreach-write](../outreach-write/SKILL.md)), one contact per
+company is the safe ceiling. Two or three make sense when each person gets a message
+written for them, or a different angle.
 
 Rank the rows inside each `k_domain` by how well `job_title` matches `titles.include` in
 the ICP, keep the top N, and move the rest out with reason `company_cap`. Keep them in
@@ -276,7 +290,7 @@ The reason vocabulary is fixed, so reports stay comparable between runs:
 `duplicate_email`, `duplicate_linkedin`, `duplicate_name_domain`, `company_cap`,
 `customer`, `competitor`, `blacklist`, `already_in_emelia`, `role_address`,
 `unwanted_role`, `geo_out_of_scope`, `size_out_of_band`, `forbidden_industry`,
-`no_contact_key`.
+`no_contact_key`, `off_target`.
 
 A real `outreach/filter-report.md`:
 

@@ -23,10 +23,13 @@ You write one variant. You check it. You return both.
   between them. You write copy for those steps, not for steps you invent.
 - **The variant label**: `A`, `B`, and what is being tested. One variable per test.
   If you are variant B on subject lines, the body is identical to variant A.
-- **The variable whitelist**: the exact column names present in
-  `outreach/leads.csv`. This is the only set of variables you may use.
-- **The sender**: name, role, company, and the market, which decides the opt out
-  and identification line.
+- **The variable whitelist**: the columns present in `outreach/leads.csv`, spelled
+  the way Emelia holds them once loaded: `first_name` is `{{firstName}}`,
+  `company_name` is `{{companyName}}`, and a custom column such as `company_siren`
+  keeps its name (the mapping is in `skills/outreach-leads/SKILL.md`, section 0).
+  This is the only set of variables you may use.
+- **The sender**: name, role, company, and the market, which decides the language and
+  the opt out rule.
 
 If the whitelist is missing, read the header of `outreach/leads.csv` yourself.
 Never assume a column exists because it usually does.
@@ -45,7 +48,9 @@ exists. Spend your effort there.
 - No compliment opener. "I loved your post" is the signature of a template.
 - Say what you sell in plain words by the third sentence. Curiosity gap copy gets
   opens and no meetings.
-- Sign as a person, with a role and a company, and give a one line opt out.
+- Do not type a sign off. End each email on `{{signature}}`, on its own line: the
+  signature of the sending mailbox carries the name, the role and the company, and it
+  signs correctly from every mailbox the campaign uses.
 
 **Subject lines.** Under 50 characters so mobile does not cut them. Lowercase or
 sentence case. No emoji. No `Re:` or `Fwd:` on a first contact, which is a lie and
@@ -82,9 +87,11 @@ open tracking to make sense.
 propose a link instead.
 
 **Variables.** Every `{{variable}}` in your copy must be in the whitelist. Every
-variable needs a fallback, written as the skill's convention requires, and no
-variable that can be empty may sit in a subject line. Count them: more than three
-variables in one email reads as a mail merge, not a message.
+variable needs a fallback, written as the skill's convention requires: in Liquid,
+`{# firstName | default: "..." #}` or a `{% if firstName %}` block, never a filter
+inside double braces, which does not work. No variable that can be empty may sit in a
+subject line. Count them: more than three variables in one email reads as a mail
+merge, not a message.
 
 **Honesty.** Every claim about the recipient must trace back to a column in
 `outreach/leads.csv`. If you wrote "I saw you are hiring three sales reps", there
@@ -94,9 +101,11 @@ personalization is worse than no personalization, because it is checkable.
 **Repetition.** No sentence repeated between steps. No follow up that restates the
 first email's pitch in the same words.
 
-**Identity and opt out.** The first email names the sender, the company, and how to
-stop receiving messages. This is a legal requirement in most markets and a
-deliverability asset in all of them.
+**Identity and opt out.** Every email identifies who writes and for which company,
+through `{{signature}}`, which is a legal requirement in most markets. The opt out
+follows the `Opt-out:` line of `outreach/sequence.md`: by default none on step 1 and a
+real anchor on `{{unsubscribe_link}}` from step 2 on, as `skills/outreach-write/SKILL.md`
+section 10 explains, or on every step when the header says `Opt-out: every step`.
 
 **Language.** One language per variant, matching the segment. No em dash and no en
 dash anywhere: use a comma, a colon or parentheses.
@@ -112,11 +121,11 @@ Testing: subject line only. Body identical to variant A.
 Language: fr. Channel: email.
 
 **Step 1, day 0, email**
-Subject: monitoring d'API chez {{company}}
+Subject: monitoring d'API chez {{companyName}}
 Body:
-Bonjour {{first_name|there}},
+Bonjour{% if firstName %} {{firstName}}{% endif %},
 
-Vous gerez {{company}} avec une equipe technique de {{headcount}} personnes, donc
+Vous gerez {{companyName}} avec une equipe technique de {{employeeCount}} personnes, donc
 vos alertes d'API partent probablement dans un canal Slack que plus personne ne lit.
 
 Nous mesurons les temps de reponse par endpoint et nous alertons seulement quand
@@ -125,8 +134,7 @@ divise leurs alertes par quatre en un mois.
 
 Ca vaut quinze minutes la semaine prochaine ?
 
-Marie Dubois, cofondatrice, Acme
-Repondez "stop" et je ne vous recontacte plus.
+{{signature}}
 
 **Step 2, day 3, email, threaded**
 ...
@@ -140,11 +148,12 @@ Checks for segment "French SaaS CTOs", variant B
   step 1 word count     96                 pass
   spam words            0 found            pass
   links                 0                  pass
-  variables used        first_name, company, headcount
+  variables used        firstName, companyName, employeeCount
   variables in list     yes                pass
-  fallbacks             first_name has one, company and headcount do not   FIX
+  fallbacks             firstName has one, companyName and employeeCount do not   FIX
   unsourced claims      0                  pass
-  opt out present       yes                pass
+  signature             {{signature}}      pass
+  opt out               none on step 1, from step 2   pass
   repetition            none               pass
 ```
 

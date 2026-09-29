@@ -106,25 +106,68 @@ curl -s -X POST "https://api.emelia.io/lists/list/<listId>/contacts/batch?update
 - **100 contacts per call, maximum**, and **1 MB per request body**. Split the CSV into
   chunks of 100, and clip long text fields to about 4,000 characters before sending. A
   hundred rows each carrying a full LinkedIn bio crosses the megabyte, and the refusal
-  fails the whole batch, not the offending row.
-- The payload is a flat object. `firstName`, `lastName`, `email`, `phone`,
-  `linkedinUrlProfile`, `companyName`, `websiteUrl` are recognised fields. **Any other
-  key creates a custom variable automatically**, which is how `icebreaker` above becomes
-  `{{icebreaker}}` in the copy. Spell the keys exactly as the copy spells the variables.
-- `updateIfExists: true` turns a duplicate into an update. Without it, a contact already
-  in the list is left as it is and reported as a duplicate, not re-created.
+  (a 413, in HTML rather than JSON) fails the whole batch, not the offending row.
+- The payload is a flat object of plain values. An array or an object as a value fails
+  that row (a 422 on the row, while the batch still answers 200), and an empty value is
+  ignored, key included.
+- **How each key is resolved**, in this order, verified against the lists API on
+  29 September 2026:
+  1. a standard field, by name or by alias. Case, spaces, dashes and underscores are
+     ignored, and many French aliases exist: `Prénom` lands in `firstName`, `Ville` in
+     `city`, `Poste` in `jobTitle`, `Secteur` in `industry`, `Société` in `companyName`,
+     `Site Web` in `websiteUrl`, `Domaine` in `companyDomain`. A prefix or a suffix of a
+     field name can match as well;
+  2. a custom variable that already exists on the account;
+  3. a name ending in `id` stops there: its value is never inspected;
+  4. **value sniffing**: a value that looks like an email, a phone number, a LinkedIn
+     profile, an X account, a company website or a LinkedIn company page lands in the
+     first standard field of that kind that is still empty. The phone pattern is loose,
+     about six grouped digits are enough, so **a SIREN sent under an undeclared name
+     lands in `phone`**. An unknown key whose value looks like one of those never becomes
+     a custom variable;
+  5. only then is a new custom variable created, and its name is flattened:
+     `basile_gmb_name` becomes `basilegmbname`.
+- The standard fields. On the contact: `firstName`, `lastName`, `fullName`, `email`,
+  `secondaryEmail`, `phone`, `mobilePhone`, `jobTitle`, `gender`, `age`, `birthDate`,
+  `language`, `profilePictureUrl`, `linkedinUrlProfile`, `twitterUrl`, `country`,
+  `region`, `city`, `postalCode`, `address`, `timezone`, `seniority`, `department`,
+  `jobStartDate`, `yearsOfExperience`, `education`, `skills`, `bio`. On the company:
+  `companyName`, `companyDomain`, `companyEmail`, `websiteUrl`, `logoUrl`, `industry`,
+  `companySize`, `companyType`, `country`, `region`, `city`, `postalCode`, `address`,
+  `timezone`, `employeeCount`, `foundedYear`, `annualRevenue`, `linkedinCompanyUrl`,
+  `twitterCompanyUrl`, `notes`, `tags`. Accepted on import does not mean usable in a
+  message: section 5 lists the ones a variable resolves.
+- **Declare your custom variables before the first batch**, so step 2 catches them before
+  step 4 can: `POST /lists/custom-variable` with
+  `{"technicalName": "company_siren", "schema": "lead", "displayName": "SIREN"}`, once per
+  variable (`schema` is `lead` or `company`). It answers 201 when it creates the
+  variable and 422 when it already exists, so call it on every run; a 422 also comes back
+  when the name is a standard field, which means you did not need a custom variable. A
+  declared name keeps its underscores. `GET /lists/custom-variable/check` with
+  `?technicalName=company_siren&schema=lead` says whether one exists.
+- **Rename the columns before you send them.** The Emelia key for each of the 26
+  columns of `outreach/leads.csv` is in the mapping table of
+  [outreach-leads](../outreach-leads/SKILL.md), section 0: the standard ones under their
+  Emelia name (`first_name` as `firstName`, `phone` as `phone` and never `mobilePhone`,
+  or the list shows zero phones and deduplication ignores them), everything else as a
+  custom variable you declared. Spell the keys exactly as the copy spells the variables:
+  `{{firstName}}`, `{{icebreaker}}`, `{{company_siren}}`.
+- **Names in capitals.** Registry and scraped exports often carry `JEAN` or
+  `MARIE CLAIRE`, and "Bonjour JEAN" ruins an email. Normalise `first_name` and
+  `last_name` before this load, with the rule in the column contract of
+  [outreach-leads](../outreach-leads/SKILL.md).
+- `?updateIfExists=true`, a query parameter and never a body key, turns a duplicate into
+  an update. Without it, a contact already in the list is left as it is and reported as a
+  duplicate, not re-created.
 - The response reports `created`, `duplicates`, `updated` and `failed` counts plus a per
   row result, indexed on the position in the array you sent, so each result maps back to
   its row. It also returns `createdCustomVariables`, where `technicalName` is the name to
   put in the copy. **Read the failed rows and report them.** Never say "1,180 contacts
   loaded" when 41 rows failed on a malformed address.
-- **The LinkedIn field is `linkedinUrlProfile`.** Not `linkedinUrl`, not `linkedin`. A
-  wrong name raises no error: it silently becomes a custom variable, and every LinkedIn
-  branch of the campaign then finds an empty profile and never fires.
-- **An unknown key is matched against the standard field names first, in several
-  languages, before it becomes a custom variable.** `"Secteur"` lands in the company
-  industry, `"Prénom"` in `firstName`, `"Société"` in `companyName`. If you want a real
-  custom variable, give it a name that resembles no standard field.
+- **The LinkedIn field is `linkedinUrlProfile`.** Send it under that exact name rather
+  than counting on an alias or on value sniffing, which only fills a field still empty.
+  When the profile lands anywhere else, every LinkedIn branch of the campaign finds an
+  empty profile and never fires, and nothing raises an error.
 - Reading back is not symmetric with writing: you send a flat object, and
   `GET /lists/list/<listId>/rows?page=1&pageSize=50` returns the company nested under
   `company` and the custom variables in a `customFields` array. `pageSize` caps at 100.
@@ -170,7 +213,7 @@ thing that makes the rest programmable.
 
 ### 4. Create the campaign
 
-Email or multichannel:
+Every campaign, whatever its channels:
 
 ```bash
 curl -s -X POST https://api.emelia.io/advanced/campaigns \
@@ -179,9 +222,18 @@ curl -s -X POST https://api.emelia.io/advanced/campaigns \
 # {"success":true,"campaignId":"6612f0a9b1c2d3e4f5a6b7c8"}
 ```
 
-LinkedIn only campaign: `POST https://api.emelia.io/linkedin/campaigns` with the same
-`{"name":"..."}` body; it returns the whole campaign object rather than just the id. With
-MCP, `create_campaign` with `{ name }` does the same thing.
+**Email only, LinkedIn only or both, it is this route.** A LinkedIn only campaign is an
+advanced campaign whose tree has no email step, for example the `pure-linkedin` or the
+`linkedin-premium-or-sales-navigator` template of `outreach-sequence`, pushed in
+section 5. A sequence of four plain emails is an advanced campaign too. With the MCP
+server, `create_campaign` with `{ name }` calls this same route and creates the same
+advanced campaign.
+
+Never create a campaign with the old platform routes, `POST /emails/campaigns` or
+`POST /linkedin/campaigns`. They still work, and what they create lives on the old
+platform. If the user already runs a campaign there, read and manage it with the legacy
+routes listed in the dispatcher, and suggest moving it to an advanced campaign built
+from the matching template.
 
 **The campaign is created empty**, with a default schedule and empty steps. `name` is
 the only field that endpoint takes, but everything else is set right after, by API.
@@ -197,17 +249,22 @@ The tree is a linked structure, not a list: it starts at a `START` node and each
 carries the next one, with `yes` and `no` branches on a condition. The five shipped
 templates in `outreach-sequence` are the reference for what a valid tree looks like.
 
-**Every PATCH on this API replaces the whole block, and there is no partial update.**
-Not for steps, not for recipients, not for identities, not for settings. What you send
-becomes the block, and what you leave out is gone. Sending only the step you wanted to
-change deletes the rest of the sequence. Sending one list in `lists` detaches all the
-others. So the only correct shape is read, modify, send back:
+**Steps, recipients and identities are replaced whole. Settings are merged.** On the
+first three there is no partial update: what you send becomes the block, and what you
+leave out is gone. Sending only the step you wanted to change deletes the rest of the
+sequence. Sending one list in `lists` detaches all the others, and one identity drops the
+others. So the only correct shape for those three is read, modify, send back:
 
 ```
 GET   /advanced/campaigns/{id}          the whole object
                                         change the one field, in the object you just read
 PATCH /advanced/campaigns/{id}/steps    send the entire tree back
 ```
+
+Settings work the other way, verified in the product on 29 September 2026: the fields
+you send are merged into the current schedule, and a field you leave out keeps its
+value. Nothing is reset to a default. Section 6 lists the fields that call still
+requires every time.
 
 **Never invent a step `_id`.** Omit it on a new tree and the server generates a real
 ObjectId for every step and version. Write `"e1"` or a UUID instead and the campaign
@@ -250,10 +307,17 @@ into `email1message` as plain text with ordinary line breaks, and it comes out a
 paragraphs. Write HTML in the body, plain text with `\n` in the variable, and never the
 other way round.
 
-Variables are double braces. A name that does not resolve renders empty, silently, with
-no error and no default, so the campaign sends "Bonjour ," rather than failing. Guarantee
-the data instead of guarding the template: every variable a step uses must be filled on
-every contact of the list, which is what the pre-flight below checks.
+Variables are double braces, `{{firstName}}`. A name that does not resolve renders
+empty, silently, with no error, so the campaign sends "Bonjour ," rather than failing.
+Double braces take no filter and no default: `{{ firstName | default: "" }}` does not
+work. A default is written in Liquid, which runs after the double braces are substituted,
+with `{#` and `#}` as its output tag and the usual `{% %}` tags:
+`Hi {# firstName | default: "there" #},` or `{% if icebreaker %}...{% endif %}`. A
+malformed Liquid tag makes the engine delete every Liquid block of the message without
+a word, so preview each one on a real contact (details in `outreach-personalize`,
+section 4). Guaranteeing the data is still the better practice: every variable a step
+uses should be filled on every contact of the list, which is what the pre-flight below
+checks.
 
 Only a fixed set of contact fields resolve at the root: `firstName`, `lastName`,
 `fullName`, `email`, `secondaryEmail`, `phone`, `mobilePhone`, `jobTitle`, `seniority`,
@@ -277,6 +341,10 @@ The shapes Emelia uses:
   and `disabled`.
 - A `CONDITION` step branches on a field with an operator among `EQUAL`, `GREATER`,
   `LOWER`, `CONTAINS`, `IS_EMPTY`, `DOES_NOT_CONTAIN`, `DOES_NOT_EQUAL`, `IS_NOT_EMPTY`.
+  The field is either an activity (`ACCEPTED`, `BOUNCED`, ...) or a contact field written
+  with a leading `$` (`$email`, `$linkedinUrlProfile`). Anything else, `{{email}}` for
+  instance, is read as an unknown activity and answers `no` for every contact, with no
+  error. `outreach-sequence`, section 3, has both families.
 
 Four rules Emelia enforces when you press Launch, so check them now rather than there:
 
@@ -305,9 +373,15 @@ Variables, exactly as the engine resolves them:
 
 Three more calls, all by API:
 
-- `PATCH /advanced/campaigns/{id}/settings` with `{"settings": { ... }}`. Note that
-  `trackLinks`, `trackOpens` and `blacklistUnsub` are **required** inside that object,
-  so send them even when you are not changing them.
+- `PATCH /advanced/campaigns/{id}/settings` with `{"settings": { ... }}`. The fields you
+  send are merged into the current schedule and the ones you leave out keep their value.
+  Four rules still apply, verified on 29 September 2026: `trackLinks`, `trackOpens` and
+  `blacklistUnsub` are **required** booleans, and the call fails without them, so send
+  them even when you are not changing them; `start` and `end` are read on every call, so
+  send them too (`HH:MM`, start before end); `dailyEmailLimit` below `dailyEmailAdded` is
+  refused; and a `RUNNING` campaign refuses any update until you pause it. A `name` in
+  that object renames the campaign, like `PATCH /advanced/campaigns/{id}/name` with
+  `{"name": "..."}`.
 - `PATCH /advanced/campaigns/{id}/recipients` with `{"lists": [...], "excludedLists":
   [...]}` at the top level of the body. `lists` is required even when empty, and both
   arrays replace what was there.
@@ -319,9 +393,10 @@ The settings fields, with the values the product accepts:
 
 | Setting | Accepted | What to set for cold outreach |
 |---|---|---|
-| `dailyEmailAdded` / `dailyEmailLimit` | 1 to 500 | The number from the deliverability ramp, per mailbox. Not 500. |
+| `name` | text | Renames the campaign |
+| `dailyEmailAdded` / `dailyEmailLimit` | 1 to 500 | The number from the deliverability ramp, per mailbox. Not 500. `dailyEmailLimit` at or above `dailyEmailAdded`, or the call is refused |
 | `dailyLinkedinAdded` | 1 to 80 | 40 maximum when the sequence contains a connection request, 80 otherwise. Emelia rejects the launch above that. |
-| `days` | 0 to 6 | Monday to Friday only |
+| `days` | 0 to 6, Monday is 0 | Monday to Friday only, `[0, 1, 2, 3, 4]` |
 | `start` / `end` | `HH:MM` | The recipient's working hours, not yours |
 | `timeZone` | IANA name | The recipient's zone |
 | `trackOpens` | boolean | Off. Apple already broke the number. |
@@ -329,7 +404,7 @@ The settings fields, with the values the product accepts:
 | `blacklistUnsub` | boolean | On. An unsubscribe click blacklists the address account wide. |
 | `ignoreAutoReplies` | boolean | On. Out of office answers stop counting as replies and stop stopping the sequence. |
 | `excludeAlreadyMessaged` | boolean | On, unless you deliberately want a second campaign to reach the same people |
-| `eventToStop` | list of events | At minimum the reply events, so a person who answers stops receiving follow ups |
+| `eventToStop` | list of events | At minimum the reply events, so a person who answers stops receiving follow ups. A listed event stops every later action of that contact, LinkedIn included, so add `BOUNCED` only when no condition in the tree branches on `BOUNCED`: in `smart-multi-channel` it would kill the LinkedIn fallback of the bounced contacts |
 | `bcc` | address | Your CRM dropbox if you have one |
 
 **Sending accounts** are called identities: one email mailbox, optionally paired with a
@@ -381,14 +456,17 @@ your files:
 python3 scripts/preflight-campaign.py <campaignId>
 ```
 
-It reads the campaign back, walks the tree including the branches, and checks the six
-things that a 200 response will not tell you: an identity is attached, a list is attached
-and holds contacts, no body is empty or missing its `<p>` paragraphs, the first email has
-a subject, no LinkedIn step carries several versions in the belief that it is an A/B
-test, and every `{{variable}}` any step uses resolves on the contacts of the attached
-lists. That last one is the check that matters: it samples the list and tells you a
-variable is empty on 25 of 99 contacts, which is 25 emails with a hole in them and no
-error anywhere. It exits non zero when something blocks.
+It reads the campaign back, walks the tree including the branches, and checks what a
+200 response will not tell you: an identity is attached, a list is attached and holds
+contacts, no body is empty or missing its `<p>` paragraphs, the first email has a
+subject, no filter sits inside double braces, no condition tests a field the engine
+cannot read, and every `{{variable}}` any step uses resolves on the contacts of the
+attached lists. That last one is the check that matters: it samples the list and tells
+you a variable is empty on 25 of 99 contacts, which is 25 emails with a hole in them and
+no error anywhere. It also warns when a LinkedIn message step carries several versions
+(they all go out, one after another, which is not an A/B test), when a body uses Liquid,
+which you then preview, and when `eventToStop` holds `BOUNCED` while a condition
+branches on it. It exits non zero when something blocks.
 
 Then the half a script cannot do:
 
@@ -401,7 +479,7 @@ Then the half a script cannot do:
 | Test email | send one from the campaign to your own address | received, read on a phone, every variable filled, links working |
 | Subject on step 1 | `GET /advanced/campaigns/{id}` | not empty |
 | Body is HTML | `GET /advanced/campaigns/{id}` | every step body contains `<p>`, and no raw `\n` |
-| Variable syntax | `GET /advanced/campaigns/{id}` | only `{{name}}`, no `{#`, no `|`, no `default:` |
+| Variable syntax | `GET /advanced/campaigns/{id}` | variables as `{{name}}`, with no pipe and no `default:` inside the double braces. Any `{# #}` or `{% %}` Liquid block was seen rendered on a real contact in the test email |
 | Carrier columns | `get_list_contacts` on one row | every `emailNsubject` and `emailNmessage` the steps reference exists and is filled |
 | Greeting | one rendered sample | the message opens with a greeting, not with the first sentence |
 | Subscription | Emelia account | active, the product refuses to start a campaign without one |
@@ -430,10 +508,12 @@ Tracking     opens off, links off, unsubscribe link present in both email steps
 Launch? This sends real email to 1,139 people.
 ```
 
-Wait for an explicit yes. Not "ok next", not silence. Then the user presses Launch in the
-app: the API does not expose starting a campaign. Confirm it took with `get_campaign` and
-check that `status` is `RUNNING`. Then update `outreach/campaign.json` with the real
-identifiers before you report back.
+Wait for an explicit yes. Not "ok next", not silence. Then start it with
+`POST /advanced/campaigns/{id}/start`, which takes no body, or let the user press Launch
+in the app if they would rather do it themselves. Either way, read it back with
+`GET /advanced/campaigns/{id}` (or `get_campaign`) and check that `status` is `RUNNING`.
+If it is not, read the error, fix the cause and ask again before a second start. Then
+update `outreach/campaign.json` with the real identifiers before you report back.
 
 ## Output
 
@@ -454,7 +534,7 @@ read.
   "contacts": { "loaded": 1139, "duplicates": 12, "failed": 41, "source": "outreach/leads.csv" },
   "schedule": {
     "dailyEmailAdded": 20,
-    "days": [1, 2, 3, 4, 5],
+    "days": [0, 1, 2, 3, 4],
     "start": "09:00",
     "end": "17:00",
     "timeZone": "Europe/Paris",
@@ -465,9 +545,9 @@ read.
   },
   "steps": [
     { "stepType": "EMAIL", "delay": { "amount": 0, "unit": "DAYS" },
-      "versions": [{ "subject": "{{companyName}} + Postgres 16", "message": "Hi {{firstName}}, ..." }] },
+      "versions": [{ "subject": "{{companyName}} + Postgres 16", "message": "<p>Hi {{firstName}}, ...</p><p></p><p>{{signature}}</p>" }] },
     { "stepType": "EMAIL", "delay": { "amount": 3, "unit": "DAYS" },
-      "versions": [{ "subject": "", "message": "Following up, {{firstName}}. ... {{unsubscribe_link}}" }] },
+      "versions": [{ "subject": "", "message": "<p>Following up, {{firstName}}. ...</p><p></p><p>{{signature}}</p><p></p><p><a href=\"{{unsubscribe_link}}\">Unsubscribe</a></p>" }] },
     { "stepType": "VISIT", "delay": { "amount": 1, "unit": "DAYS" }, "versions": [] }
   ],
   "preflight": {
@@ -520,9 +600,11 @@ read.
 ## Limits
 
 This skill does not write the copy and does not judge whether the sequence is any good.
-It cannot create the steps, the schedule or the sending accounts through the API, and it
-cannot press Launch for you: those happen once in the Emelia app, and the skill tells you
-exactly what to set there. It does not verify email addresses (`outreach-verify` does),
-does not create A/B variants through the API. It will
-not launch on a BLOCKED verdict, on an unverified list, or without an explicit yes, and
-no phrasing of the request changes that.
+It creates the campaign, pushes the steps, the settings, the list and the sending
+accounts, and starts it, all through the API, but it cannot connect a mailbox or a
+LinkedIn account and it cannot take out the subscription a start requires: those happen
+in the Emelia app, and the skill says so when one of them is missing. It never creates a
+campaign on the old platform. It does not verify email addresses (`outreach-verify`
+does) and does not design the A/B test (`outreach-sequence` does). It will not launch on
+a BLOCKED verdict, on an unverified list, or without an explicit yes, and no phrasing of
+the request changes that.

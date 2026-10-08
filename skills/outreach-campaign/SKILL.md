@@ -266,19 +266,22 @@ you send are merged into the current schedule, and a field you leave out keeps i
 value. Nothing is reset to a default. Section 6 lists the fields that call still
 requires every time.
 
-**Never invent a step `_id`.** Omit it on a new tree and the server generates a real
-ObjectId for every step and version. Write `"e1"` or a UUID instead and the campaign
-saves without complaint, reads back correctly, and then sends the same email to the same
-person over and over: the activity record that logs a send casts `stepId` to an
-ObjectId, the cast fails after the message has already gone out, no activity is stored,
-and the scheduler replans a step it has no record of having run. Conditions on that step
-hang forever for the same reason. The only `_id` you write by hand is `"START"` on the
-root. `outreach-sequence` has the full explanation and the recovery for a campaign
-already built that way.
+**Step and version ids are MongoDB ObjectIds: 24 lowercase hex characters, for example
+`66f2b4c19e7a3d5b8c0e1f24`. Never a UUID.** Omit `_id` on a new tree and the server
+generates a real one for every step and every version; the only `_id` you write by hand
+is `"START"` on the root. If you have to write one, generate it, one per step and per
+version: `crypto.randomBytes(12).toString('hex')` in Node, `secrets.token_hex(12)` in
+Python. The API saves a UUID or a label such as `"e1"` without a word, and the campaign
+breaks once it runs: an email or an invitation on that step never goes out and its
+contacts pile up there, a LinkedIn message goes out again at every pass, and the
+conditions after it wait forever. `outreach-sequence`, section 2, has the whole rule and
+the repair for a campaign already built that way, and the pre-flight in section 7 blocks
+on it.
 
 On a campaign that has already sent something, keep the `_id` of every step and every
 version you are not changing: activities, per version statistics and each contact's
-position in the sequence hang off those ids, and new ids restart people mid sequence.
+position in the sequence hang off those ids, and new ids restart people mid sequence. A
+step you add goes in without an `_id`, or with one generated as above.
 
 And a campaign that is `RUNNING` refuses every one of these calls with
 `You must pause your campaign before updating it`. Pause, patch, start again.
@@ -458,7 +461,8 @@ python3 scripts/preflight-campaign.py <campaignId>
 
 It reads the campaign back, walks the tree including the branches, and checks what a
 200 response will not tell you: an identity is attached, a list is attached and holds
-contacts, no body is empty or missing its `<p>` paragraphs, the first email has a
+contacts, every step `_id` is 24 lowercase hex characters and appears once in the tree,
+no body is empty or missing its `<p>` paragraphs, the first email has a
 subject, no filter sits inside double braces, no condition tests a field the engine
 cannot read, and every `{{variable}}` any step uses resolves on the contacts of the
 attached lists. That last one is the check that matters: it samples the list and tells
@@ -596,6 +600,11 @@ read.
 - **The test email arrives with `{{firstName}}` in it.** The variable name in the copy does
   not match a key on the contact. Compare them character by character, they are case
   sensitive.
+- **The campaign runs, the contacts pile up on one step and nothing shows in
+  `/failed-activities`, or a contact receives the same LinkedIn message again.** A step
+  `_id` is a UUID, a label or uppercase hex instead of 24 lowercase hex characters. The
+  pre-flight names the step; pause and repair the tree as `outreach-sequence`, section 2,
+  says. Starting the campaign again changes nothing.
 
 ## Limits
 

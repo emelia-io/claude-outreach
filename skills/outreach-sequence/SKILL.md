@@ -269,6 +269,10 @@ Same schema as the Output section below: these blocks give `template`, `channels
 even when you have edited the tree, and list what you changed in `template_changes`, so
 six weeks later you can tell a deliberate cut from a mistake.
 
+The trees carry no `_id` except `"START"` on the root. Keep it that way: the server gives
+every other step and version a real ObjectId when you push. If you ever write one, it is
+24 lowercase hex characters and never a UUID, as section 2 explains.
+
 `pure-cold-email`:
 
 ```json
@@ -567,43 +571,81 @@ what keeps the follow ups in the same thread and the LinkedIn messages under the
 account. Writing an address or an account name in a step's `identities` does nothing at
 all, and reads as if it worked.
 
-**Do not write your own `_id`. Omit it and let the server generate it.** That is not a
-style preference, it is the difference between a campaign that runs and one that
-silently re-sends.
+**Every `_id` in the tree is a MongoDB ObjectId: 24 hexadecimal characters, in
+lowercase**, for example `66f2b4c19e7a3d5b8c0e1f24`. That holds for every step, whatever
+its type, conditions and `END_OF_CAMPAIGN` included, and for every version: the A/B
+variants of an email, the sub-messages of a LinkedIn message, the single version of an
+invitation, an InMail or a task. The one exception is `"START"` on the root, which never
+produces an activity because it is not an action. Never a UUID, with or without its
+dashes, never a label such as `"e1"` or `"invite"`, never uppercase hex. Code generators
+and language models reach for a UUID by default, and a UUID is exactly the id that breaks
+a campaign.
 
-The server stores the step tree as it receives it, whatever its shape. A `_id` of
-`"e1"`, or a UUID, or anything else, is accepted, saved, and reads back perfectly from
-`GET /advanced/campaigns/{id}`. The campaign looks right in the app.
+**The default is to write no `_id` at all.** When you push the steps, the server walks
+the tree, the `yes` and `no` branches included, and gives a real ObjectId to every step
+and every version that has none. An empty string counts as none. An id you wrote is kept
+as it is, even a bad one.
 
-It breaks later, at send time. The activity record that logs the send declares
-`stepId` as an **ObjectId**, and it is required. A value that cannot be cast to a
-24 character hex ObjectId makes that write fail, and the write happens **after** the
-message has left. So the email is sent, the activity is not stored, and from the
-scheduler's point of view the step never happened: it plans it again, and the same
-person receives the same email on the next pass. Every condition that depends on that
-step is stuck too, because it looks for the origin activity and finds nothing, so the
-contact waits at the branch forever. From the outside it reads as "all the actions are
-failing".
+**When you do write one**, because something has to point at a step before you read the
+campaign back, generate it, the way the Emelia app writes its own. Nothing reads a date
+out of a step id, so 12 random bytes written as hex are as good as an ObjectId from a
+MongoDB driver.
 
-A version id that is not an ObjectId is quietly dropped instead, so a bad version id
-only costs you the per variant statistics. A step id gets no such rescue.
+```bash
+node -e "console.log(require('crypto').randomBytes(12).toString('hex'))"
+python3 -c "import secrets; print(secrets.token_hex(12))"
+```
 
-Two consequences:
+Both print 24 lowercase hex characters. Generate a fresh one for each step and each
+version. When you copy a branch, drop its ids: two steps that share an id are treated as
+one step. And the ids you pass to other calls (`stepId` and `versionId` for a test email,
+`taskId` for a manual task, the `versionId` filter on activities) are ids you read back
+with `GET`, never ones you make up.
 
-- **A new tree ships without ids.** When you push the steps, the server walks the
-  tree, the `yes` and `no` branches included, and generates a real ObjectId for every
-  step and every version that has none. It keeps an id you wrote, even a bad one. The
-  only `_id` you write by hand is `"START"` on the root, which never produces an
-  activity because it is not an action.
-- **An existing tree keeps the ids it has.** Read it with `GET`, change what you need in
-  the object you just read, send the whole thing back. Every activity, every per version
-  statistic and every contact's position in the sequence hangs off those ids, and
-  regenerating them restarts people who were already deep in the sequence.
+**Why it matters.** The server stores the tree as it receives it and checks none of the
+ids. A UUID or `"e1"` is accepted, saved, and reads back perfectly from
+`GET /advanced/campaigns/{id}`. The campaign looks right in the app. It breaks once it
+runs, because everything Emelia records about a contact's progress, the activities you
+read with `GET /advanced/campaigns/{id}/activities`, stores the step id as an ObjectId,
+and a step whose id cannot become one is never recorded:
 
-If you inherited a campaign built with invented ids, the fix is not to patch the ids in
-place while it runs. Pause it, read the tree, strip every `_id` except the root, send it
-back so the server regenerates them, and accept that the contacts already in flight lose
-their position. Anything else leaves a campaign that keeps re-sending.
+- **Nothing happens on an email, an invitation, an InMail, a visit or a like.** The step
+  fails before anything is sent, nothing is recorded, not even in `/failed-activities`,
+  and the step is planned again at the next pass, where it fails again. The contacts pile
+  up on that step and the campaign looks like it sends nothing.
+- **A LinkedIn message goes out and is not recorded.** The step is planned again, and the
+  same person receives the same message at every pass.
+- **Every condition after that step waits forever** for an event that was never written.
+- **Uppercase hex, or a label of exactly 12 characters, half works, which is worse.**
+  Emelia converts it on the way in, what it records no longer matches the tree, and the
+  step is never seen as done: the contact is stuck on that step after it ran once, and a
+  LinkedIn message goes out again.
+
+A version id that cannot become an ObjectId is dropped from the activity instead, so a
+bad version id costs you the per variant statistics, not the sends.
+
+**An existing tree keeps the ids it has.** Read it with `GET`, change what you need in the
+object you just read, send the whole thing back. Every activity, every per version
+statistic and every contact's position in the sequence hangs off those ids, and
+regenerating them restarts people who were already deep in the sequence: they receive the
+steps they already had a second time. A step you add to an existing tree goes in without
+an `_id`, or with one generated as above.
+
+**If you inherited a campaign built with bad ids**, do not patch them while it runs.
+Pause it, read the tree, fix every id that is not 24 lowercase hex characters, and send
+the tree back:
+
+- uppercase hex: write it in lowercase;
+- a label of exactly 12 characters: replace it with the hex of its characters,
+  `python3 -c "print('email-step-1'.encode().hex())"`;
+- anything else, a UUID or a label of another length: remove the `_id`, and the server
+  generates a new one.
+
+The first two are the forms Emelia already recorded, so those contacts keep their place.
+Nothing was ever recorded under the third kind, so removing it costs nobody their place,
+but a contact who already received a LinkedIn message from such a step receives it once
+more. Leave every id that was already right untouched, then run
+`scripts/preflight-campaign.py` before you start the campaign again.
 
 The manual call task is worth its own line. A `TASK` step parks the contact and shows
 up in the Emelia app as a pending task with the name you gave it. When the MCP server
@@ -1032,9 +1074,9 @@ repository's, and carry the decisions the platform does not store.
     }
   },
   "ab_test": {
-    "step_id": "s1-email",
+    "step": "the first EMAIL step",
     "variable": "the ask",
-    "versions": { "v-a": "question about ownership", "v-b": "interest based, the two minute version" },
+    "versions": { "A": "question about ownership", "B": "interest based, the two minute version" },
     "metric": "replies",
     "min_contacts_per_version": 435,
     "min_days_after_last_entry": 5,
@@ -1063,8 +1105,9 @@ handle a branch, since branches never rejoin.
 
 ## Checks before finishing
 
-- The file is valid JSON, the tree has exactly one `START` root, and every `_id` is
-  unique.
+- The file is valid JSON and the tree has exactly one `START` root. Every other step and
+  every version either has no `_id`, or one of 24 lowercase hex characters that appears
+  once in the tree. No UUID, no label, no uppercase.
 - `template` names one of the five ids, or is `null` with a written reason, and the two
   coverage percentages that led to that choice were said out loud to the user.
 - `template_changes` lists every deviation from the stock tree, including the deletions.
@@ -1133,6 +1176,11 @@ produces a trickle and no signal. Fewer steps on more contacts beats the opposit
 condition but counts from the originating action, and that action never happened for
 those contacts: no invitation sent means no `ACCEPTED` to wait for. Check that the step
 before the condition is the one that produces the originating event.
+
+**Contacts pile up on one step, or receive the same LinkedIn message again.** A step
+`_id` is a UUID, a label or uppercase hex instead of 24 lowercase hex characters, and the
+API saved it without a word. `scripts/preflight-campaign.py` names the step, and section
+2 has the repair.
 
 **The LinkedIn steps are designed and there is no LinkedIn account.** Ask before you
 design, not after. Email only is a perfectly good sequence.

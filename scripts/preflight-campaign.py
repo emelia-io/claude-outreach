@@ -57,9 +57,12 @@ FILTER_IN_BRACES = re.compile(r"\{\{[^{}]*(?:\||\bdefault\s*:)[^{}]*\}\}")
 # else is read as an unknown activity and answers "no" for every contact.
 ACTIVITIES = {"ACCEPTED", "LINKEDIN_REPLIED", "MAIL_REPLIED", "OPENED", "CLICKED",
               "UNSUBSCRIBED", "BOUNCED", "TASK_COMPLETED"}
-# The activity record casts stepId to an ObjectId. Anything else raises after the
-# message has already been sent, so the send is not logged and gets planned again.
-OBJECT_ID = re.compile(r"^[0-9a-fA-F]{24}$")
+# Step and version ids are MongoDB ObjectIds written as 24 lowercase hex characters. The
+# API saves any string, and a step whose id is not one is never recorded as done: an
+# email or an invitation never goes out, a LinkedIn message goes out again at every pass.
+# Uppercase hex and 12 character labels are converted on the way in and no longer match
+# the tree, which ends the same way.
+OBJECT_ID = re.compile(r"^[0-9a-f]{24}$")
 
 
 def call(key: str, path: str):
@@ -126,19 +129,27 @@ def main() -> int:
     used = set()
     bounce_branch = False
     steps = list(walk(c.get("steps")))
+    seen_ids = {}
     for st, _ in steps:
         sid = str(st.get("_id") or "")
         if st.get("stepType") == "START":
             continue
         if not OBJECT_ID.match(sid):
-            blocking.append(f"step {st.get('stepType')} has _id {sid!r}, which is not a "
-                            f"24 character ObjectId: its sends will not be logged and "
-                            f"the step will be replanned and sent again")
+            blocking.append(f"step {st.get('stepType')} has _id {sid!r}, not 24 lowercase "
+                            f"hex characters: Emelia never records it as done, so an email "
+                            f"or an invitation never goes out and a LinkedIn message goes "
+                            f"out again. Repair it as outreach-sequence section 2 says")
+        elif sid in seen_ids:
+            blocking.append(f"steps {seen_ids[sid]} and {st.get('stepType')} share the _id "
+                            f"{sid!r}: Emelia treats them as one step")
+        else:
+            seen_ids[sid] = st.get("stepType")
         for v in st.get("versions") or []:
             vid = str(v.get("_id") or "")
             if vid and not OBJECT_ID.match(vid):
                 warnings.append(f"version _id {vid!r} on a {st.get('stepType')} step is "
-                                f"not an ObjectId: per variant statistics are lost")
+                                f"not 24 lowercase hex characters: per variant statistics "
+                                f"are lost")
             for text in (v.get("message") or "", v.get("subject") or ""):
                 for bad in sorted(set(FILTER_IN_BRACES.findall(text))):
                     blocking.append(f"{st.get('stepType')} step: {bad} puts a filter inside "

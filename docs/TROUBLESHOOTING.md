@@ -9,6 +9,7 @@ starts with how to tell it apart from the failure it looks like.
 | `429`, `402`, "Rate limit exceeded", "Not enough credits" | [Quota and rate limits](#quota-and-rate-limits) |
 | A find or verify that returns `status: running` and stays there | [An enrichment job that never finishes](#an-enrichment-job-that-never-finishes) |
 | The campaign exists in Emelia but sends nothing | [The campaign will not start](#the-campaign-will-not-start) |
+| Contacts stuck on one step, or the same LinkedIn message received again | [The campaign will not start](#the-campaign-will-not-start), point 8 |
 | Delivered, opened by nobody, replies at zero | [Emails going to spam](#emails-going-to-spam) |
 | Recipients received `Bonjour ,`, a gap where a variable should be | [Variables that did not resolve](#variables-that-did-not-resolve) |
 | 12,000 rows in, 0 rows out | [An empty list after filtering](#an-empty-list-after-filtering) |
@@ -202,6 +203,19 @@ put together.
 
 7. **The deliverability gate said NO GO.** In that case nothing is broken and nothing
    started, on purpose. Read `outreach/deliverability.md`.
+
+8. **A step id that is not a MongoDB ObjectId.** Every step and every version `_id` is
+   24 lowercase hex characters, such as `66f2b4c19e7a3d5b8c0e1f24`, or is left out so
+   Emelia generates it. Never a UUID. The API saves a UUID or a label such as `e1`
+   without an error, and the campaign breaks while it runs: an email or an invitation on
+   that step never goes out, nothing shows in
+   `GET /advanced/campaigns/{id}/failed-activities`, the contacts pile up on that step,
+   and a LinkedIn message goes out again at every pass. Uppercase hex fails more
+   quietly: the step runs once, then the contact stays stuck on it, and a LinkedIn
+   message still goes out again. Run
+   `python3 scripts/preflight-campaign.py <campaignId>`, which names the step, then
+   repair the tree as [outreach-sequence](../skills/outreach-sequence/SKILL.md),
+   section 2, says.
 
 ---
 

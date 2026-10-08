@@ -146,7 +146,7 @@ pipeline programmable, so use them, and tell the user they are not contractual y
 | Method and path | What it does |
 |---|---|
 | `GET /advanced/campaigns/{id}` | The full campaign: status, steps, schedule, recipients, identities |
-| `PATCH /advanced/campaigns/{id}/steps` | Set the sequence, `{"steps": {...}}`: an object, not an array. Replaces the whole tree |
+| `PATCH /advanced/campaigns/{id}/steps` | Set the sequence, `{"steps": {...}}`: an object, not an array. Replaces the whole tree. Leave out every `_id` but `"START"` on the root and the server generates them; one you write is a MongoDB ObjectId, 24 lowercase hex characters, never a UUID |
 | `PATCH /advanced/campaigns/{id}/settings` | Schedule, daily volumes, tracking, stop conditions, wrapped in `settings`. Merged into the current schedule: a field you omit keeps its value. `trackLinks`, `trackOpens`, `blacklistUnsub`, `start` and `end` go in every call |
 | `PATCH /advanced/campaigns/{id}/recipients` | Attach lists (`lists`) and exclusion lists (`excludedLists`). Both arrays replace what was there |
 | `PATCH /advanced/campaigns/{id}/identities` | Choose the sending accounts. Replaces the list |

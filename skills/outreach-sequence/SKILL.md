@@ -534,14 +534,17 @@ These are Emelia's real step types. Use these exact values in `campaign.json`.
 | `EMAIL` | email | an email identity, `versions[].subject` and `versions[].message` | `message` is the whole body, assembled as in section 4. Leave the subject empty to stay in the thread: Emelia reuses the last subject, prefixes it with `Re: `, and quotes the history underneath |
 | `VISIT` | LinkedIn | a LinkedIn identity | A profile view. Costs nothing, notifies the prospect, warms an invitation |
 | `CONNECTION` | LinkedIn | a LinkedIn identity | The invitation. `versions[0].message` is the note, capped at 300 characters, and an empty note usually gets accepted more often than a pitched one |
-| `MESSAGE` | LinkedIn | an accepted connection | The direct message. Useless before an acceptance, and it waits for one on its own when it follows a `CONNECTION` |
+| `MESSAGE` | LinkedIn | an accepted connection | The direct message. Useless before an acceptance, and it waits for one on its own when it follows a `CONNECTION`. A voice note is a `MESSAGE` too, see Attachments below |
 | `INMAIL` | LinkedIn | InMail credits on the account | Paid, use it on the rows the invitation did not reach. One version carrying `subject` and `message` |
-| `LIKE`, `FOLLOW` | LinkedIn | a LinkedIn identity | Light touches, low value on their own, fine as a warm up |
-| `AUDIO` | LinkedIn | a LinkedIn identity | A voice note. High reply rate, does not scale, keep it for a short list |
+| `LIKE` | LinkedIn | a LinkedIn identity | A light touch, low value on its own, fine as a warm up |
 | `TASK` | human | nothing | The manual step, and this is the call step. Its name is `versions[0].subject` |
 | `CONDITION` | none | `conditions` plus `yes` and `no` | The branch, see below |
-| `API_CALL` | none | a URL | Fires a webhook, use it to write into your CRM |
 | `END_OF_CAMPAIGN` | none | nothing | Ends the sequence for this contact |
+
+**`FOLLOW`, `AUDIO` and `API_CALL` are not in this table on purpose.** They exist in
+Emelia's model and the API accepts them when you save the sequence, but nothing runs
+them: no follow, no voice note, no call to any URL, and the step is never marked as done.
+Never put them in `campaign.json`.
 
 Every step carries `_id`, `stepType`, `identities`, `delay` and a link to what comes
 next. The tree is chained through `next`, and a `CONDITION` chains through `yes` and
@@ -554,9 +557,31 @@ next. The tree is chained through `next`, and a `CONDITION` chains through `yes`
 
 **Attachments** hang off a version as `attachments: [{name, url}]`, uploaded first with
 `POST /advanced/attachments`. On LinkedIn each one also carries `mediaType`, which is
-`MEDIA` or `ATTACHMENT` for a file or an image and `AUDIO` for a voice note, uploaded
-with `POST /advanced/linkedin/audio` and carrying a `duration` in seconds. On email,
+`MEDIA` or `ATTACHMENT` for a file or an image and `AUDIO` for a voice note. On email,
 prefer a link: an attachment costs deliverability on a first touch.
+
+**A voice note is a `MESSAGE` step whose first version carries the recording.** Upload
+the file with `POST /advanced/linkedin/audio` (multipart field `audio`, 10 MB and 5
+minutes at most). It answers with `audio.name`, `audio.url` and `audio.duration`: write
+those three into the attachment, with `mediaType` set to `AUDIO`. `duration` is in
+milliseconds, so 32 seconds is `32000`, not `32`. High reply rate, does not scale, keep
+it for a short list.
+
+```json
+{
+  "stepType": "MESSAGE",
+  "identities": [],
+  "delay": { "amount": 2, "unit": "DAYS" },
+  "versions": [{
+    "message": "",
+    "attachments": [{ "name": "voice-note.m4a", "url": "https://...",
+                      "mediaType": "AUDIO", "duration": 32000 }]
+  }]
+}
+```
+
+A `MESSAGE` step whose first attachment has no `url` blocks the launch with
+`LINKEDIN_AUDIO_MISSING`.
 
 **`disabled: true` on a version** keeps it in the campaign and takes it out of the A/B
 rotation. That is how you retire the losing variant without deleting the history that

@@ -51,7 +51,9 @@ COMPANY_VARS = {"companyDomain", "websiteUrl", "logoUrl", "industry", "companySi
 VAR = re.compile(r"\{\{\s*([A-Za-z0-9_]+)\s*\}\}")
 LIQUID = re.compile(r"\{%|\{#")
 # {{ firstName | default: "" }} is not Liquid and does not work. Liquid itself runs after
-# the double braces are substituted, with {# #} as its output tag and the usual {% %} tags.
+# the double braces are substituted, with {# #} as its output tag and the usual {% %} tags,
+# and it only sees custom variables: a standard or company field always reads as empty.
+LIQUID_VAR = re.compile(r"\{#\s*([A-Za-z0-9_]+)|\{%-?\s*(?:if|unless|elsif)\s+([A-Za-z0-9_]+)")
 FILTER_IN_BRACES = re.compile(r"\{\{[^{}]*(?:\||\bdefault\s*:)[^{}]*\}\}")
 # A condition field is an activity, or a contact field when it starts with $. Anything
 # else is read as an unknown activity and answers "no" for every contact.
@@ -154,7 +156,17 @@ def main() -> int:
                 for bad in sorted(set(FILTER_IN_BRACES.findall(text))):
                     blocking.append(f"{st.get('stepType')} step: {bad} puts a filter inside "
                                     f"double braces, which does not work. A default is "
-                                    f"written in Liquid, {{# name | default: \"...\" #}}")
+                                    f"written in Liquid on a custom variable, "
+                                    f"{{# name | default: \"...\" #}}")
+                for a, b in sorted(set(LIQUID_VAR.findall(text))):
+                    name = a or b
+                    if (name in ROOT_VARS or name in COMPANY_VARS
+                            or name.lower() in ENGINE_VARS):
+                        blocking.append(f"{st.get('stepType')} step: Liquid reads {name}, "
+                                        f"which is not a custom variable. Liquid only sees "
+                                        f"custom variables, so its default always prints "
+                                        f"and an if on it is always false. Put the value "
+                                        f"in a custom variable and use that one")
         if st.get("stepType") == "MESSAGE" and len(st.get("versions") or []) > 1:
             warnings.append("several versions on a LinkedIn MESSAGE step: they are all "
                             "sent, one after another, as sub-messages. Fine if that is "
@@ -191,7 +203,8 @@ def main() -> int:
                 warnings.append(f"email step {n}: the body contains a newline, which "
                                 f"renders as nothing. Paragraphs are <p>")
             if LIQUID.search(msg):
-                warnings.append(f"email step {n}: the body uses Liquid. It works, but a "
+                warnings.append(f"email step {n}: the body uses Liquid. It works on custom "
+                                f"variables only, and a "
                                 f"malformed tag silently deletes every Liquid block of "
                                 f"the message, so preview it on a real contact, and a "
                                 f"default value hides a column you should have filled")

@@ -314,13 +314,18 @@ Variables are double braces, `{{firstName}}`. A name that does not resolve rende
 empty, silently, with no error, so the campaign sends "Bonjour ," rather than failing.
 Double braces take no filter and no default: `{{ firstName | default: "" }}` does not
 work. A default is written in Liquid, which runs after the double braces are substituted,
-with `{#` and `#}` as its output tag and the usual `{% %}` tags:
-`Hi {# firstName | default: "there" #},` or `{% if icebreaker %}...{% endif %}`. A
-malformed Liquid tag makes the engine delete every Liquid block of the message without
-a word, so preview each one on a real contact (details in `outreach-personalize`,
-section 4). Guaranteeing the data is still the better practice: every variable a step
-uses should be filled on every contact of the list, which is what the pre-flight below
-checks.
+with `{#` and `#}` as its output tag and the usual `{% %}` tags, and **Liquid only sees
+your custom variables**: `{# icebreaker | default: "..." #}` and
+`{% if icebreaker %}...{% endif %}` work. On a standard field (`firstName`, `lastName`,
+`companyName`, `jobTitle`...) or a company field, Liquid always reads an empty value, even
+when the contact has one: `{# firstName | default: "there" #}` says "there" to everyone,
+and `{% if firstName %}` is always false. For a fallback on a standard field, copy the
+value into a custom variable you declared and put the Liquid on that one, or branch with a
+`CONDITION` on `$firstName` with `IS_EMPTY` (details in `outreach-personalize`,
+section 4). A malformed Liquid tag makes the engine delete every Liquid block of the
+message without a word, so preview each one on a real contact. Guaranteeing the data is
+still the better practice: every variable a step uses should be filled on every contact
+of the list, which is what the pre-flight below checks.
 
 Only a fixed set of contact fields resolve at the root: `firstName`, `lastName`,
 `fullName`, `email`, `secondaryEmail`, `phone`, `mobilePhone`, `jobTitle`, `seniority`,
@@ -335,9 +340,11 @@ even though the API accepted it on import.
 The shapes Emelia uses:
 
 - `stepType` is one of `START`, `EMAIL`, `CONNECTION`, `MESSAGE`, `INMAIL`, `VISIT`,
-  `LIKE`, `FOLLOW`, `AUDIO`, `TASK`, `API_CALL`, `CONDITION`, `END_OF_CAMPAIGN`. The
-  LinkedIn ones carry no `LINKEDIN_` prefix, and there is no `WAIT` step: waiting is the
-  `delay` of the next step.
+  `LIKE`, `TASK`, `CONDITION`, `END_OF_CAMPAIGN`. The LinkedIn ones carry no `LINKEDIN_`
+  prefix, and there is no `WAIT` step: waiting is the `delay` of the next step.
+  `FOLLOW`, `AUDIO` and `API_CALL` are accepted when you save the sequence, but nothing
+  runs them and the step is never marked as done: never use them. A LinkedIn voice note
+  is a `MESSAGE` step, see `outreach-sequence`, section 2.
 - `delay` is `{ "amount": 3, "unit": "DAYS" }`, and `unit` is `DAYS`, `HOURS` or
   `MINUTES`. The delay is counted from the previous step, not from the start.
 - A message step carries `versions`, one per A/B variant, each with `subject`, `message`
@@ -448,7 +455,7 @@ Then `PATCH /advanced/campaigns/{id}/identities` with `{"identities": [...]}`, w
 each entry carries a `name` and at least one of `email` or `linkedin`.
 
 **Recipients**: attach the list from section 1. Confirm the contact count Emelia shows
-matches the rows you loaded. A campaign is capped at 15,000 recipients.
+matches the rows you loaded. A campaign is capped at 30,000 recipients.
 
 ### 7. Pre-flight, all of it, before you ask anything
 
@@ -470,7 +477,8 @@ you a variable is empty on 25 of 99 contacts, which is 25 emails with a hole in 
 no error anywhere. It also warns when a LinkedIn message step carries several versions
 (they all go out, one after another, which is not an A/B test), when a body uses Liquid,
 which you then preview, and when `eventToStop` holds `BOUNCED` while a condition
-branches on it. It exits non zero when something blocks.
+branches on it. It blocks a Liquid block that reads a standard or company field, which
+Liquid cannot see. It exits non zero when something blocks.
 
 Then the half a script cannot do:
 
@@ -483,12 +491,12 @@ Then the half a script cannot do:
 | Test email | send one from the campaign to your own address | received, read on a phone, every variable filled, links working |
 | Subject on step 1 | `GET /advanced/campaigns/{id}` | not empty |
 | Body is HTML | `GET /advanced/campaigns/{id}` | every step body contains `<p>`, and no raw `\n` |
-| Variable syntax | `GET /advanced/campaigns/{id}` | variables as `{{name}}`, with no pipe and no `default:` inside the double braces. Any `{# #}` or `{% %}` Liquid block was seen rendered on a real contact in the test email |
+| Variable syntax | `GET /advanced/campaigns/{id}` | variables as `{{name}}`, with no pipe and no `default:` inside the double braces. Any `{# #}` or `{% %}` Liquid block reads a custom variable only, and was seen rendered on a real contact in the test email |
 | Carrier columns | `get_list_contacts` on one row | every `emailNsubject` and `emailNmessage` the steps reference exists and is filled |
 | Greeting | one rendered sample | the message opens with a greeting, not with the first sentence |
 | Subscription | Emelia account | active, the product refuses to start a campaign without one |
 | Identities | `GET /advanced/campaigns/{id}` | at least one, none disconnected or expired |
-| Recipients | `get_campaign` | above 0, at most 15,000, and at least one contact reachable on each channel the sequence uses |
+| Recipients | `get_campaign` | above 0, at most 30,000, and at least one contact reachable on each channel the sequence uses |
 | Schedule | `GET /advanced/campaigns/{id}` | set, with days and hours |
 
 A blank variable is the most common way a good campaign embarrasses someone. Count them
@@ -584,7 +592,7 @@ read.
 - **"none of your contacts has an email address".** The column mapping is wrong: the CSV
   column was loaded into a custom variable instead of `email`. Check one contact with
   `get_list_contacts` using `{ listId, email: "..." }` and fix the keys, then reload.
-- **"You cannot have more than 15,000 recipients".** Split into several campaigns by
+- **"You cannot have more than 30,000 recipients".** Split into several campaigns by
   segment. Do not trim the list at random.
 - **"Your email provider has been disconnected".** Reconnect it in the app. It is not
   something the API can do, and the campaign will not start until it is done.

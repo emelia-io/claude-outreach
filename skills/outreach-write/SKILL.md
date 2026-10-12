@@ -619,13 +619,17 @@ sequence arrives looking careless.
 filter inside double braces, `{{ firstName | default: "" }}`, is not Liquid and does not
 work.
 
-**A fallback is written in Liquid, and filled data still beats it.** An unresolved
-variable renders as **nothing**, silently, which is why "Hi {{firstName}}," on a row with
-no first name ships as "Hi ,". Emelia runs Liquid after the double braces are
-substituted, on email and on LinkedIn, with `{#` and `#}` as its output tag and the usual
-`{% %}` tags (verified against the sending engine on 29 September 2026). So
-`Hi {# firstName | default: "there" #},` works, and so does
-`{% if icebreaker %}...{% endif %}`. Two cautions. A malformed Liquid tag makes the
+**A fallback is written in Liquid, on a custom variable, and filled data still beats
+it.** An unresolved variable renders as **nothing**, silently, which is why
+"Hi {{firstName}}," on a row with no first name ships as "Hi ,". Emelia runs Liquid after
+the double braces are substituted, on email and on LinkedIn, with `{#` and `#}` as its
+output tag and the usual `{% %}` tags, and Liquid only sees your custom variables
+(verified against the sending engine on 12 October 2026). So
+`{% if icebreaker %}...{% endif %}` works, and `Hi {# firstName | default: "there" #},`
+does not: `firstName` is a standard field, Liquid reads it as empty on every contact, and
+everyone gets "there". A standard field gets its fallback through a custom variable that
+carries the value, `Hi {# greeting_name | default: "there" #},`, or through a
+`CONDITION` on `$firstName`. Two cautions. A malformed Liquid tag makes the
 engine delete every Liquid block of the message without a word, so preview each one on a
 real contact before the launch. And a default hides a column you should have filled:
 check the column is filled on every row first, and keep the fallback for the rows you
@@ -730,6 +734,7 @@ this order, and say that you checked by hand.
 | Images | none, the open pixel is already one | FAIL |
 | Variables | every `{{name}}` is a column of `leads.csv` or an Emelia contact field | FAIL |
 | Filter in double braces | a pipe or a `default:` inside `{{ }}`, which does not work | FAIL |
+| Liquid on a standard field | a `{# #}` or `{% %}` block that reads a standard or company field, which Liquid cannot see | FAIL |
 | Liquid block | a `{# #}` or `{% %}` block, to preview on a real contact | INFO |
 | Variable in subject | must carry a fallback | WARN |
 | Spam trigger words | one is a smell, three in one email is a stack | WARN then FAIL |
@@ -800,7 +805,7 @@ Mode: B, two variants, no per contact message
 Opt-out: from step 2
 Proof: Kestrel Pay, named with the account manager's permission on 2026-09-02
 Ask: a question about ownership, no meeting before step 3
-Variables used: firstName, companyNameClean, icebreaker
+Variables used: greeting_name, companyNameClean, icebreaker
 Written: 2026-09-09 by outreach-write
 Checks: passed, 0 blocking, 0 warnings
 
@@ -811,7 +816,7 @@ Checks: passed, 0 blocking, 0 warnings
 **Body:**
 
 ```text
-Hi {# firstName | default: "there" #},
+Hi {# greeting_name | default: "there" #},
 
 {{icebreaker}}
 
@@ -853,7 +858,7 @@ Worth a look?
 **Body:**
 
 ```text
-Hi {# firstName | default: "there" #},
+Hi {# greeting_name | default: "there" #},
 
 Different question. When a customer reports a bad response, who finds out first
 on your side, and how long does that take?

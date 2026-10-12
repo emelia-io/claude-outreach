@@ -14,7 +14,9 @@ Variables are {{name}}. A filter inside double braces ({{ name | default: "" }})
 not work and is a FAIL. Liquid runs after the double braces, with {# #} as its output
 tag and the usual {% %} tags: those are allowed, their variables are checked, and each
 step that uses them gets an INFO line asking for a preview on a real contact, because
-a malformed tag silently deletes every Liquid block of the message.
+a malformed tag silently deletes every Liquid block of the message. Liquid only sees
+custom variables, so a Liquid block that reads a standard or company field is a FAIL:
+its default always prints and an if on it is always false.
 """
 import csv, pathlib, re, sys
 SEQ, LEADS = sys.argv[1], sys.argv[2]
@@ -150,14 +152,20 @@ for s in steps:
             say("FAIL", n, f"variable {v} is not a column of leads.csv nor an Emelia field")
     for bad in sorted(set(FILTER_IN_BRACES.findall(body + " " + sub))):
         say("FAIL", n, f"{bad} puts a filter inside double braces, which does not work. "
-                       "Write {{name}}, or a Liquid default: {# name | default: \"...\" #}")
+                       "Write {{name}}, or a Liquid default on a custom variable: "
+                       "{# name | default: \"...\" #}")
     liquid_vars = set(re.findall(r"\{#\s*([A-Za-z0-9_]+)", body + " " + sub))
     liquid_vars |= set(LIQUID_TAG_VAR.findall(body + " " + sub))
     for v in liquid_vars:
         if v in CONTRACT_TO_EMELIA:
             say("FAIL", n, f"Liquid variable {v} is the CSV column name: Emelia stores it "
-                           f"as {CONTRACT_TO_EMELIA[v]}")
-        elif v not in cols and v not in ROOT_VARS: say("FAIL", n, f"Liquid variable {v} does not exist")
+                           f"as {CONTRACT_TO_EMELIA[v]}, a standard field Liquid cannot see")
+        elif v in ROOT_VARS:
+            say("FAIL", n, f"Liquid variable {v} is an Emelia field, not a custom variable, "
+                           f"and Liquid only sees custom variables: its default always "
+                           f"prints and an if on it is always false. Put the value in a "
+                           f"custom variable and use that one")
+        elif v not in cols: say("FAIL", n, f"Liquid variable {v} does not exist")
     if LIQUID.search(body + " " + sub):
         say("INFO", n, "Liquid block, preview it on a real contact: a malformed tag silently "
                        "deletes every Liquid block of the message")

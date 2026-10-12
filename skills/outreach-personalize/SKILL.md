@@ -174,12 +174,12 @@ and write the copy with the name you declared.
 raw token. The sentence simply loses its middle and the email goes out anyway. This is
 the single most common way a good sequence is ruined at scale.
 
-**Fallbacks are Liquid, with unusual delimiters.** Emelia already uses double braces
-for its own variables, so its Liquid output tag is `{#` and `#}`, and its logic tag is
-the standard `{% %}`:
+**Fallbacks are Liquid, with unusual delimiters, and Liquid only sees your custom
+variables.** Emelia already uses double braces for its own variables, so its Liquid
+output tag is `{#` and `#}`, and its logic tag is the standard `{% %}`:
 
 ```text
-Hi {# firstName | default: "there" #},
+Hi {# greeting_name | default: "there" #},
 ```
 
 ```text
@@ -192,9 +192,23 @@ Hi {# firstName | default: "there" #},
 
 Order of evaluation, which explains the traps below: `{{ }}` variables are substituted
 first, then Liquid runs, then spintax runs last. Liquid runs on email and LinkedIn steps
-alike, against the contact and its custom fields, verified against the sending engine on
-29 September 2026. A filter inside double braces is not Liquid:
-`{{ firstName | default: "" }}` does not work, and the default belongs in `{# #}`.
+alike, but against your custom variables only, verified against the sending engine on
+12 October 2026. A standard field (`firstName`, `lastName`, `companyName`, `jobTitle`...)
+or a company field always reads as empty inside `{# #}` and `{% %}`, even when the
+contact has a value: `{# firstName | default: "there" #}` greets everyone with "there",
+and `{% if firstName %}` always takes the `else`. A filter inside double braces is not
+Liquid either: `{{ firstName | default: "" }}` does not work.
+
+For a fallback on a standard field, two ways work:
+
+1. **A custom variable carrying the value.** Declare one whose name is neither a
+   standard field nor one of its aliases (`greeting_name` works, `first_name` lands in
+   `firstName`), load the first name into it on every row, and put the Liquid on it, as
+   in the example above. Or write the fallback into that column yourself, `there` on the
+   rows without a first name, and use `Hi {{greeting_name}},` with no Liquid at all.
+2. **A `CONDITION` on `$firstName` with `IS_EMPTY`**, each branch with its own wording.
+   Conditions read standard fields, Liquid does not. Branches never join again, so
+   everything after the condition is written twice: keep it for a step that matters.
 
 Five rules that follow from that:
 

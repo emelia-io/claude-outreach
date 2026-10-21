@@ -6,7 +6,7 @@ Claude Code. Everything else is optional until you want to enrich or send.
 1. [Install the plugin](#1-install-the-plugin)
 2. [Get your Emelia API key](#2-get-your-emelia-api-key)
 3. [Set the keys as environment variables](#3-set-the-keys-as-environment-variables)
-4. [Connect the MCP server, optional](#4-connect-the-mcp-server-optional)
+4. [Connect the MCP server, no key needed](#4-connect-the-mcp-server-no-key-needed)
 5. [Check it works](#5-check-it-works)
 6. [Add Basile, optional](#6-add-basile-optional)
 7. [The one thing to know before your first campaign](#7-the-one-thing-to-know-before-your-first-campaign)
@@ -47,6 +47,11 @@ steps (sourcing, enrichment, copy variants, mailbox audits) one item at a time.
 [app.emelia.io/settings/api](https://app.emelia.io/settings/api), create a key,
 copy it once. It is shown once.
 
+Rather not handle a key? Go to [section 4](#4-connect-the-mcp-server-no-key-needed):
+the MCP server signs you in with your Emelia account, and the skills use it first. The
+key stays what the bundled scripts need, and what CI or a machine without a browser
+needs.
+
 You need an Emelia account for anything that finds an email, verifies an address,
 finds a mobile, creates a campaign or reads replies. The rest of the pipeline runs
 without one.
@@ -74,20 +79,48 @@ the most common false alarm on this page.
 Never put a key in a file inside a repository. If you already did, rotate it in the
 Emelia app before anything else.
 
-## 4. Connect the MCP server, optional
+## 4. Connect the MCP server, no key needed
 
-The REST API covers everything the skills need day to day. The MCP server adds the
-handful of things REST does not expose: campaign statistics
-(`get_campaign_stats`), warmup state (`get_warmup_status`, `set_warmup`), sending
-accounts (`list_email_providers`), list management (`create_list`, `list_lists`,
-`get_list`, `rename_list`, `delete_list`, `get_list_contacts`, `update_contact`,
-`delete_contact`) and `find_contact`, which looks a contact up across every list in
-the account.
+The MCP server covers the whole Emelia API except the legacy campaigns, plus what the
+REST API does not offer: campaign statistics (`get_campaign_stats`), warmup state
+(`get_warmup_status`, `set_warmup`), sending accounts (`list_email_providers`), list
+management (`create_list`, `list_lists`, `get_list`, `rename_list`, `delete_list`,
+`get_list_contacts`, `update_contact`, `delete_contact`), `find_contact`, which looks a
+contact up across every list in the account, LinkedIn extractions
+(`create_linkedin_scraper`) and, once the Inbox is open in Emelia, the inbox. When it
+is connected, the skills use it first.
 
-Without it, `/outreach deliverability` cannot read your warmup state and says so
-rather than assuming it is fine. That is the main reason to bother.
+Without it and without a key, `/outreach deliverability` cannot read your warmup state
+and says so rather than assuming it is fine.
 
-From the command line:
+**Sign in with your Emelia account** (recommended, nothing to copy):
+
+```bash
+claude mcp add --transport http --scope user emelia https://mcp.emelia.io/mcp
+```
+
+Then run `/mcp` in Claude Code, pick `emelia` and choose **Authenticate**. Your
+browser opens an Emelia page: check the account shown and click **Authorize**. Ask
+"list my campaigns" to test it. The access token stays inside Claude Code: the
+skills reach Emelia through the MCP tools, and the bundled scripts, which call the
+REST API directly, still need `EMELIA_API_KEY`.
+
+For a project shared with a team, the same in a `.mcp.json` at its root. It holds no
+secret, and each person signs in with their own account:
+
+```json
+{
+  "mcpServers": {
+    "emelia": {
+      "type": "http",
+      "url": "https://mcp.emelia.io/mcp"
+    }
+  }
+}
+```
+
+**Or with your API key** (CI, scripts, a machine without a browser). Claude Code then
+does not ask you to sign in:
 
 ```bash
 claude mcp add --transport http emelia https://mcp.emelia.io/mcp \
@@ -128,6 +161,14 @@ returns 405 with "this MCP server is stateless, use POST /mcp", which is the ser
 working, not a broken configuration.
 
 Then, in Claude Code, `/mcp` should list `emelia` as connected.
+
+Two notes. If Emelia is already connected as a connector of your Claude account, its
+tools can show up in Claude Code under another prefix: the skills find them by the end
+of their name, but the agents, which list `mcp__emelia__<tool>`, do not, so add the
+server as above as well. And the plugin does not declare the server itself, on
+purpose: a server shipped inside a plugin gets its tools renamed
+`mcp__plugin_claude-outreach_emelia__<tool>`, and it would sit next to the `emelia`
+server you may already have, with every tool twice.
 
 ## 5. Check it works
 

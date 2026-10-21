@@ -183,10 +183,11 @@ France, or when you are working a named account list and need the person inside 
 1. You build the search in Sales Navigator and give the skill the URL. Nobody can
    rebuild your filters, your saved leads and your seat's reach better than you can,
    so the skill does not try.
-2. The scrape runs in Emelia, and you start it in the app, with the LinkedIn
-   Scraper, by pasting the search URL. No MCP tool and no documented REST route
-   starts one, so say so rather than implying it is automatable. If your MCP client
-   does advertise a scraping tool, read its declared input schema before calling it.
+2. The scrape runs in Emelia. Start it in the app, with the LinkedIn Scraper, by
+   pasting the search URL, or let the skill start it: `create_linkedin_scraper` on the
+   MCP server, `POST /linkedin-scrappers` over REST ([reference](https://docs.emelia.io/docs/linkedin-scraper/start-extraction)). Both need a
+   LinkedIn account connected to Emelia, and the skill asks before starting, because
+   it runs on your LinkedIn account and, without a subscription, on credits.
 3. The scrape produces a contact list in Emelia, and reading it back is automatable.
    Over REST, `GET /lists/list?source=linkedin_scrap` (add `search` to narrow by name)
    finds it and `GET /lists/list/{listId}/rows` pages through it, 100 rows at a time.

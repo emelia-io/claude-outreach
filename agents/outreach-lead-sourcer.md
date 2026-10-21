@@ -96,10 +96,13 @@ https://docs.basile.cc:
 Ask the user for a LinkedIn or Sales Navigator search URL. You cannot build one
 that reflects their seat, their filters and their saved leads better than they can.
 
-No MCP tool and no documented REST route starts a LinkedIn scrape. Tell the user to
-start it in the Emelia app, with the LinkedIn Scraper, from that URL, and to give you
-the resulting list name. Do not pretend you can start it. If your MCP client does
-advertise a scraping tool, read its declared input schema before calling it.
+Starting the scrape can be automated: `create_linkedin_scraper` on the MCP server, or
+`POST /linkedin-scrappers` over REST ([reference](https://docs.emelia.io/docs/linkedin-scraper/start-extraction)). Both need the id of a
+LinkedIn account connected to Emelia (`authes`), so read the declared input schema
+before calling, and get the user's yes first: it runs on their LinkedIn account, and
+without a subscription it is paid in credits. Then follow it with
+`get_linkedin_scraper`. If the user would rather start it in the Emelia app, with the
+LinkedIn Scraper, ask them for the resulting list name.
 
 The scrape produces a list in Emelia, and reading it back is automatable: over REST,
 `GET /lists/list?source=linkedin_scrap` to find it and `GET /lists/list/{listId}/rows`

@@ -87,11 +87,57 @@ credits. See "Credit discipline" below.
 
 ## Connecting to Emelia
 
-Two ways in, and they do not cover the same ground. Read this before writing any call.
+Two ways in: the MCP server, which the user can connect by signing in with their
+Emelia account, and the REST API, which needs an API key. Read this before writing any
+call.
+
+### Pick the way in, before the first call
+
+Check once per run, in this order, and tell the user in one line which way you use.
+
+1. **The Emelia MCP server, when it is connected.** Look for an Emelia tool among
+   your tools: a name that ends in `__get_campaign_sequence_guide` or
+   `__list_campaigns`. It is `mcp__emelia__list_campaigns` when the user followed
+   [SETUP.md](../../docs/SETUP.md), but a claude.ai connector or another server name
+   changes the prefix, so match the end of the name, never the prefix. If your tools
+   are loaded on demand, search for them first (`emelia list_campaigns`). Then call
+   `list_campaigns` once: it only reads, costs nothing, and proves the sign-in works.
+   A server that `/mcp` shows as needing authentication has no tools until the user
+   picks it there and chooses **Authenticate**.
+   When it is connected, use its tools for everything they cover: campaigns and their
+   sequence, lists and contacts, enrichment, LinkedIn extractions, mailboxes and
+   warmup, blacklist, credits, and the inbox once it is open in Emelia. The REST tables
+   below then only explain what a tool does underneath.
+2. **`EMELIA_API_KEY`, when it is set.** Test it with `[ -n "$EMELIA_API_KEY" ]` and
+   never print it. Use the REST API below. It is also the only way for the bundled
+   scripts (`scripts/find-emails.py`, `scripts/preflight-campaign.py`), which call
+   REST directly.
+3. **Neither.** Before falling back to dry run, offer the shortest way in, which needs
+   no key at all:
+
+   ```bash
+   claude mcp add --transport http --scope user emelia https://mcp.emelia.io/mcp
+   ```
+
+   Then `/mcp` in Claude Code, `emelia`, **Authenticate**, and **Authorize** on the
+   Emelia page that opens in the browser. If the tools do not show up in this session,
+   ask the user to start a new one. If they would rather not connect anything, dry run.
+
+Two consequences of signing in rather than using a key. Claude Code keeps the access
+token to itself: the shell cannot read it, `$EMELIA_API_KEY` stays empty and the
+scripts cannot run, so do their work with the MCP tools (`find_email`,
+`verify_email`, `get_campaign` and the others) and say so. And the tools act as the
+user on the whole account, exactly as a key would: the rules below on credits and on
+sending apply unchanged.
+
+Suggest the name `emelia` and no other: the agents of this plugin list their tools as
+`mcp__emelia__<tool>`, so under another name they lose the MCP tools and work through
+REST, or report what they could not read.
 
 ### The REST API, the documented path
 
-This is what every sub-skill assumes by default. The user creates an API key at
+This is the way in when there is a key and no MCP server, and the one the scripts
+use. The user creates an API key at
 [app.emelia.io/settings/api](https://app.emelia.io/settings/api) and exports it:
 
 ```bash
@@ -166,16 +212,25 @@ change and nothing else.
 The order that works: create, patch the steps, patch the settings, attach the list,
 choose the identities, send yourself a test email, then start. Never skip the test.
 
-### The MCP server, an optional accelerator
+### The MCP server
 
-If the user has it configured (`https://mcp.emelia.io/mcp`, header `Authorization`),
-prefer it for the five things the REST API does not expose: `get_campaign_stats`,
-`get_warmup_status` and `set_warmup`, `list_email_providers`, the list management
-tools (`create_list`, `list_lists`, `get_list`, `rename_list`, `delete_list`,
-`get_list_contacts`, `update_contact`, `delete_contact`) and `find_contact`, which
-searches a contact across every list of the account.
+`https://mcp.emelia.io/mcp`. The user connects it by signing in with their Emelia
+account (OAuth, nothing to copy) or with an API key in the `Authorization` header.
+Both give the same access to the whole account.
 
-Never assume it is there. Check, and fall back to REST or to asking the user.
+It covers the whole API except the legacy campaigns, plus what REST does not offer.
+The tools the skills reach for most: `get_campaign_stats`, `get_warmup_status` and `set_warmup`, `list_email_providers`,
+`check_mailbox_health`, the list management tools (`create_list`, `list_lists`,
+`get_list`, `rename_list`, `delete_list`, `get_list_contacts`, `update_contact`,
+`delete_contact`), `find_contact`, which searches a contact across every list of the
+account, `create_linkedin_scraper`, which starts a LinkedIn extraction from a search
+URL, and, once the Inbox is open in Emelia, the inbox tools (`list_emails`,
+`search_emails`, `get_thread`, `draft_reply`). The full list, with every parameter, is
+at [docs.emelia.io/docs/mcp/tools](https://docs.emelia.io/docs/mcp/tools). Before
+writing or changing a sequence through it, read `get_campaign_sequence_guide`.
+
+Never assume it is there. Check as described above, and fall back to REST or to
+asking the user.
 
 Two things verified against the live server on 8 September 2026, because getting them
 wrong costs a failed call every time: `find_email` rejects any request without
@@ -201,8 +256,9 @@ product's central mechanic, and it is what makes an ongoing campaign easy to fee
 without touching its configuration again.
 
 Say this plainly to the user the first time, rather than letting them discover it.
-If neither key nor MCP is configured, offer **dry run**: every step still produces
-its file, nothing is sent, nothing is charged.
+If neither the MCP server nor a key is there, offer to connect the MCP server first
+(see "Pick the way in"), then **dry run**: every step still produces its file,
+nothing is sent, nothing is charged.
 
 ### Why these skills exist next to an API
 

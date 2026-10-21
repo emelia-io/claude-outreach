@@ -25,7 +25,7 @@ money is a change in the dispatcher, and it applies everywhere at once.
 ## What each layer is for
 
 **The dispatcher** is the contract. It holds the command table, the working
-directory, the transport (REST first, MCP when configured), and the four rules that
+directory, the transport (the MCP server when connected, REST with a key otherwise), and the four rules that
 do not bend: count before you extract, filter before you enrich, verify before you
 send, confirm anything that costs money or reaches a human. It routes, it does not
 implement.
@@ -135,19 +135,26 @@ campaign without rebuilding anything.
 
 Two transports, and a skill picks in this order.
 
-**REST, `https://api.emelia.io`, header `Authorization: <key>`.** The documented
-surface, and the default. Enrichment jobs, contacts, lists, campaign creation,
+**The MCP server, `https://mcp.emelia.io/mcp`, when it is connected.** The user
+connects it by signing in with their Emelia account (OAuth) or with an API key. It
+covers the whole API except the legacy campaigns, plus what REST does not offer:
+`get_campaign_stats`, `get_warmup_status`, `set_warmup`, `list_email_providers`, the
+list management tools, `find_contact`, LinkedIn extractions, and the inbox. A skill
+detects it by looking for a tool whose name ends in `__list_campaigns` or
+`__get_campaign_sequence_guide`, whatever the prefix, then confirms with one
+`list_campaigns` call, which reads and costs nothing.
+
+**REST, `https://api.emelia.io`, header `Authorization: <key>`, when `EMELIA_API_KEY`
+is set.** The documented surface: enrichment jobs, contacts, lists, campaign creation,
 activities, replies, blacklist, plus the campaign configuration and launch routes that
-the dispatcher lists and that are not in the public documentation yet. This is what
-every sub-skill assumes.
+the dispatcher lists and that are not in the public documentation yet. The bundled
+scripts only speak REST, so they need the key even when the MCP server is connected:
+signed in with OAuth, the access token stays inside Claude Code.
 
-**The MCP server, `https://mcp.emelia.io/mcp`, when the user configured it.**
-Preferred for what REST does not expose: `get_campaign_stats`, `get_warmup_status`,
-`set_warmup`, `list_email_providers`, the list management tools, and `find_contact`.
-
-A skill checks whether the MCP tools are there. If they are not, it uses REST, or it
-says which specific thing it could not read. It never assumes, and it never reports a
-check as passed when it could not run it.
+If neither is there, the dispatcher offers the one command that connects the MCP
+server, before falling back to dry run. A skill never assumes a transport, and it
+never reports a check as passed when it could not run it: if a specific read is not
+available, it says which one.
 
 **Neither configured** is a supported mode, not an error: dry run. Every step
 produces its file, states what it would have called and what it would have cost, and

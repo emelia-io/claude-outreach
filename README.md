@@ -87,7 +87,21 @@ Copy-Item -Recurse claude-outreach\skills\* $HOME\.claude\skills\
 Copy-Item -Recurse claude-outreach\agents\* $HOME\.claude\agents\
 ```
 
-**Add your keys** so the skills can enrich and send. Create an Emelia API key at
+**Connect Emelia**, so the skills can enrich and send. Two ways, pick one or both.
+
+The quickest needs no key: connect the [Emelia MCP server](https://docs.emelia.io/docs/mcp)
+and sign in with your Emelia account.
+
+```bash
+claude mcp add --transport http --scope user emelia https://mcp.emelia.io/mcp
+```
+
+Then run `/mcp` in Claude Code, pick `emelia`, choose **Authenticate**, and click
+**Authorize** on the Emelia page that opens. Keep the name `emelia`: the agents look
+for tools named `mcp__emelia__<tool>`. When the server is connected, the skills use it
+first.
+
+Or **add your keys**, for the REST API and the bundled scripts. Create an Emelia API key at
 [app.emelia.io/settings/api](https://app.emelia.io/settings/api):
 
 ```bash
@@ -95,11 +109,12 @@ export EMELIA_API_KEY="..."      # enrichment, contacts, campaigns, replies
 export BASILE_API_KEY="..."      # optional, French B2B data
 ```
 
-That is all you need: the skills talk to the REST API, lists and campaigns included.
-If you also run the [Emelia MCP server](https://docs.emelia.io/docs/mcp-server), they
-will use it for the few things the REST API does not expose, such as warmup status.
+With a key and no MCP server, the skills talk to the REST API, lists and campaigns
+included. With both, they use the MCP server first and keep the key for the scripts.
+Basile has no MCP route in this plugin yet: French B2B data always needs
+`BASILE_API_KEY`.
 
-Without a key, everything still runs in dry run: you get the list, the copy and the
+Without either, everything still runs in dry run: you get the list, the copy and the
 sequence as files, nothing is sent and nothing is charged.
 
 The whole pipeline runs through the API, campaign creation and launch included. Some

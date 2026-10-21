@@ -541,10 +541,15 @@ only the `text:` values by hand. Store the URL verbatim, parentheses and commas 
 The result count above the list is free and is the ground truth. Read it back to the
 user before collecting anything, and compare it against the ICP estimate.
 
-**Collect the results.** Checked against the current Emelia surface: no MCP tool and no
-documented REST endpoint starts a LinkedIn scrape. The scrape itself is started in the
-Emelia app, with the LinkedIn Scraper, by pasting the Sales Navigator URL. Say this to
-the user rather than implying it is automatable, then pick up the result:
+**Start the scrape.** It can be started for the user: `create_linkedin_scraper` on the
+MCP server, or `POST /linkedin-scrappers` over REST ([reference](https://docs.emelia.io/docs/linkedin-scraper/start-extraction)). Both need
+the id of a LinkedIn account connected to Emelia (`authes`), so read the declared input
+schema before calling, and get an explicit yes first: it runs on the user's LinkedIn
+account, and without a subscription it is paid in credits. Follow it with
+`get_linkedin_scraper`. The user can also start it in the Emelia app, with the LinkedIn
+Scraper, by pasting the Sales Navigator URL.
+
+**Collect the results.** Once the scrape has finished, pick up the result:
 
 1. `list_lists` with `source: "linkedin_scrap"` finds the list the scrape produced.
    Add `search` to narrow by name, and `sortBy: "createdAt"` with `sortDir: "desc"` to
@@ -559,8 +564,7 @@ the user rather than implying it is automatable, then pick up the result:
 Without the MCP server, the same reads go through REST: `GET /lists/list` with
 `?source=linkedin_scrap` (and `search`) finds the list, and
 `GET /lists/list/{listId}/rows` pages through it, 100 rows at a time. Exporting the list
-to CSV from the Emelia app and running the CSV route below works too. If your MCP client does advertise a LinkedIn scraping tool,
-read its declared input schema before calling it and do not assume parameters.
+to CSV from the Emelia app and running the CSV route below works too.
 
 ### 3. A CSV the user already has
 

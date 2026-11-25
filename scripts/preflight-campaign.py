@@ -6,6 +6,11 @@ plain text so the whole email arrived as one block, a variable spelled in a way 
 contact carries so it rendered empty, a list that was never attached, a follow-up with
 no opt out. The API accepts all of it and says 200.
 
+Variables are counted on every contact, page after page, never on a sample: the custom
+values come from the campaign's own contacts, which is what the engine sends, and the
+standard and company fields from every row of the attached lists. A step whose body is a
+single variable (Mode A) blocks as soon as one contact has it empty.
+
     EMELIA_API_KEY=... python3 scripts/preflight-campaign.py <campaignId>
 
 Exit code 0 when nothing blocks, 1 when something does.
@@ -15,6 +20,7 @@ import os
 import re
 import ssl
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -42,8 +48,13 @@ ROOT_VARS = {
     "linkedinUrlProfile", "twitterUrl", "country", "region", "city", "postalCode",
     "address", "timezone", "yearsOfExperience", "education", "bio", "companyName",
 }
-# Filled by Emelia at send time, never by the list.
+# Filled by Emelia at send time, never by the list. {{signature}} is lowercase only; the
+# opt out and the unique id resolve in any case.
 ENGINE_VARS = {"signature", "unsubscribe_link", "unique_id"}
+# The root fields the campaign contact listing returns next to `custom`.
+CAMPAIGN_SIDE = {"firstName", "lastName", "email", "phone", "linkedinUrlProfile"}
+# Steps whose versions carry a message.
+MESSAGE_STEPS = {"EMAIL", "MESSAGE", "INMAIL", "CONNECTION"}
 COMPANY_VARS = {"companyDomain", "websiteUrl", "logoUrl", "industry", "companySize",
                 "employeeCount", "foundedYear", "annualRevenue", "linkedinCompanyUrl",
                 "companyCity", "companyCountry", "notes", "tags"}
@@ -51,8 +62,9 @@ COMPANY_VARS = {"companyDomain", "websiteUrl", "logoUrl", "industry", "companySi
 VAR = re.compile(r"\{\{\s*([A-Za-z0-9_]+)\s*\}\}")
 LIQUID = re.compile(r"\{%|\{#")
 # {{ firstName | default: "" }} is not Liquid and does not work. Liquid itself runs after
-# the double braces are substituted, with {# #} as its output tag and the usual {% %} tags,
-# and it only sees custom variables: a standard or company field always reads as empty.
+# the double braces are substituted, with {# #} as its output tag and the usual {% %} tags.
+# On a standard or company field it depends on the version of the sending engine: recent
+# ones read the field, older ones read it as empty. A warning, not a block.
 LIQUID_VAR = re.compile(r"\{#\s*([A-Za-z0-9_]+)|\{%-?\s*(?:if|unless|elsif)\s+([A-Za-z0-9_]+)")
 FILTER_IN_BRACES = re.compile(r"\{\{[^{}]*(?:\||\bdefault\s*:)[^{}]*\}\}")
 # A condition field is an activity, or a contact field when it starts with $. Anything
@@ -68,13 +80,59 @@ OBJECT_ID = re.compile(r"^[0-9a-f]{24}$")
 
 
 def call(key: str, path: str):
-    req = urllib.request.Request(BASE + path, method="GET")
-    req.add_header("Authorization", key)
-    try:
-        with urllib.request.urlopen(req, timeout=60, context=TLS) as r:
-            return r.status, json.loads(r.read().decode() or "{}")
-    except urllib.error.HTTPError as e:
-        return e.code, {"error": e.read().decode(errors="replace")[:300]}
+    for attempt in range(4):
+        req = urllib.request.Request(BASE + path, method="GET")
+        req.add_header("Authorization", key)
+        try:
+            with urllib.request.urlopen(req, timeout=60, context=TLS) as r:
+                return r.status, json.loads(r.read().decode() or "{}")
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < 3:
+                wait = int(e.headers.get("Retry-After") or 60)
+                print(f"  rate limited, waiting {wait} s")
+                time.sleep(wait)
+                continue
+            return e.code, {"error": e.read().decode(errors="replace")[:300]}
+    return 429, {"error": "rate limited"}
+
+
+def campaign_contacts(key: str, cid: str):
+    """Every contact of the campaign, as the engine holds them. `page` is zero based."""
+    out, page, count = [], 0, None
+    while True:
+        st, body = call(key, f"/advanced/campaign/contacts?id={cid}&page={page}&perPage=1000")
+        if st != 200:
+            return None, f"HTTP {st}"
+        batch = body.get("list") or []
+        count = body.get("count") or 0
+        out.extend(batch)
+        if not batch or len(out) >= count:
+            return out, None
+        page += 1
+
+
+def list_rows(key: str, list_id: str):
+    """Every row of a list, 100 per page, plus the custom variables it shows."""
+    out, columns, page = [], set(), 1
+    while True:
+        st, body = call(key, f"/lists/list/{list_id}/rows?page={page}&pageSize=100")
+        if st != 200:
+            return None, columns, f"HTTP {st}"
+        columns |= {v["technicalName"] for v in body.get("customVariables") or []}
+        items = body.get("items") or []
+        out.extend(items)
+        if not items or len(out) >= (body.get("total") or 0):
+            return out, columns, None
+        page += 1
+
+
+def carrier(text: str):
+    """The variable a body is made of, when it is made of one variable and nothing else."""
+    rest = re.sub(r"<a\b[^>]*unsubscribe_link[^>]*>.*?</a>", " ", text, flags=re.I | re.S)
+    rest = re.sub(r"\{\{\s*signature\s*\}\}", " ", rest)
+    rest = re.sub(r"<[^>]+>|&nbsp;", " ", rest)
+    m = re.fullmatch(r"\s*\{\{\s*([A-Za-z0-9_]+)\s*\}\}\s*", rest)
+    return m.group(1) if m else None
 
 
 def walk(step, depth=0, n=0):
@@ -162,11 +220,16 @@ def main() -> int:
                     name = a or b
                     if (name in ROOT_VARS or name in COMPANY_VARS
                             or name.lower() in ENGINE_VARS):
-                        blocking.append(f"{st.get('stepType')} step: Liquid reads {name}, "
-                                        f"which is not a custom variable. Liquid only sees "
-                                        f"custom variables, so its default always prints "
-                                        f"and an if on it is always false. Put the value "
-                                        f"in a custom variable and use that one")
+                        warnings.append(f"{st.get('stepType')} step: Liquid reads {name}, "
+                                        f"which is not a custom variable. Some versions of "
+                                        f"the sending engine read it as empty, and then its "
+                                        f"default always prints and an if on it is always "
+                                        f"false. Put the value in a custom variable, which "
+                                        f"works either way, or check it in a test email")
+                for bad in sorted(set(re.findall(r"\{\{\s*(signature)\s*\}\}", text, re.I))):
+                    if bad != "signature":
+                        blocking.append(f"{st.get('stepType')} step: {{{{{bad}}}}} is not "
+                                        f"lowercase and renders nothing. Write {{{{signature}}}}")
         if st.get("stepType") == "MESSAGE" and len(st.get("versions") or []) > 1:
             warnings.append("several versions on a LinkedIn MESSAGE step: they are all "
                             "sent, one after another, as sub-messages. Fine if that is "
@@ -189,11 +252,25 @@ def main() -> int:
                         "a bounced contact is stopped before that branch runs")
     emails = [(s, n) for s, n in steps if s.get("stepType") == "EMAIL"]
     print(f"steps     {len(steps) - 1} after START, {len(emails)} email")
+    carriers = {}
+    for s, n in steps:
+        if s.get("stepType") not in MESSAGE_STEPS:
+            continue
+        label = f"email step {n}" if s.get("stepType") == "EMAIL" else f"{s.get('stepType')} step"
+        for v in s.get("versions") or []:
+            msg, subj = v.get("message") or "", v.get("subject") or ""
+            used |= set(VAR.findall(msg)) | set(VAR.findall(subj))
+            # An empty invitation note still sends the invitation: not a carrier.
+            if s.get("stepType") == "CONNECTION":
+                continue
+            for text, what in ((msg, "body"), (subj, "subject")):
+                name = carrier(text)
+                if name and name.lower() not in ENGINE_VARS:
+                    carriers.setdefault(name, f"the {what} of {label}")
     for s, n in emails:
         for v in s.get("versions") or []:
             msg = v.get("message") or ""
             subj = v.get("subject") or ""
-            used |= set(VAR.findall(msg)) | set(VAR.findall(subj))
             if not msg.strip():
                 blocking.append(f"email step {n}: a version has an empty body")
             elif "<p" not in msg:
@@ -203,53 +280,89 @@ def main() -> int:
                 warnings.append(f"email step {n}: the body contains a newline, which "
                                 f"renders as nothing. Paragraphs are <p>")
             if LIQUID.search(msg):
-                warnings.append(f"email step {n}: the body uses Liquid. It works on custom "
-                                f"variables only, and a "
-                                f"malformed tag silently deletes every Liquid block of "
-                                f"the message, so preview it on a real contact, and a "
-                                f"default value hides a column you should have filled")
+                warnings.append(f"email step {n}: the body uses Liquid. A malformed tag "
+                                f"silently deletes every Liquid block of the message, so "
+                                f"look at it in a test email, and a default value hides a "
+                                f"column you should have filled")
             if n == 1 and not subj.strip():
                 blocking.append("email step 1 has no subject, the first email needs one")
             if n > 1 and "unsubscribe_link" not in msg.lower():
                 warnings.append(f"email step {n}: no opt out link, so no "
                                 f"List-Unsubscribe header on this step")
 
-    # 4. Do the variables resolve
+    # 4. Do the variables resolve, on every contact
     engine = {v for v in used if v.lower() in ENGINE_VARS}
     need = sorted(used - engine)
     print(f"variables {', '.join(sorted(used)) or 'none'}")
+    if carriers:
+        print(f"carriers  {', '.join(sorted(carriers))}")
 
-    columns, missing_counts = set(), {}
-    for l in lists:
-        st, rows = call(key, f"/lists/list/{l['_id']}/rows?page=1&pageSize=100")
-        if st != 200:
-            warnings.append(f"cannot read the contacts of {l.get('name')}: HTTP {st}")
-            continue
-        columns |= {v["technicalName"] for v in rows.get("customVariables") or []}
-        for item in rows.get("items") or []:
-            flat = dict(item)
-            for cf in item.get("customFields") or []:
-                flat[cf["technicalName"]] = cf.get("value")
-            flat.update(item.get("company") or {})
-            for v in need:
-                if not str(flat.get(v) or "").strip():
-                    missing_counts[v] = missing_counts.get(v, 0) + 1
+    # The campaign side: the custom values the engine will actually send.
+    contacts, err = campaign_contacts(key, cid)
+    if contacts is None:
+        warnings.append(f"cannot read the contacts of the campaign ({err}): custom "
+                        f"variables are counted on the lists instead")
+    elif not contacts and total:
+        warnings.append("the campaign holds no contact yet while its lists do: the "
+                        "recipients are still being set up. Run this again in a minute, "
+                        "custom variables are counted on the lists meanwhile")
+        contacts = None
+    custom_keys = set()
+    for c in contacts or []:
+        custom_keys |= set((c.get("custom") or {}).keys())
 
-    sampled = min(100, total)
+    # The list side: every row, for the fields the campaign listing does not return.
+    rows, columns = [], set()
+    if need:
+        for l in lists:
+            got, cols, err = list_rows(key, l["_id"])
+            columns |= cols
+            if got is None:
+                warnings.append(f"cannot read the contacts of {l.get('name')}: {err}")
+                continue
+            rows.extend(got)
+
+    def flat_row(item):
+        flat = dict(item)
+        for cf in item.get("customFields") or []:
+            flat[cf["technicalName"]] = cf.get("value")
+        flat.update(item.get("company") or {})
+        return flat
+
+    flat_rows = [flat_row(r) for r in rows]
+    print(f"read      {len(contacts or [])} campaign contacts, {len(flat_rows)} list rows")
+
     for v in need:
-        known = v in ROOT_VARS or v in columns or v in COMPANY_VARS
-        empty = missing_counts.get(v, 0)
+        on_campaign = contacts is not None and (v in CAMPAIGN_SIDE or v in custom_keys or (
+            v not in ROOT_VARS and v not in COMPANY_VARS))
+        if on_campaign:
+            pool = contacts
+            empty = sum(1 for c in pool if not str(
+                (c.get(v) if v in CAMPAIGN_SIDE else (c.get("custom") or {}).get(v)) or "").strip())
+            where = "campaign contacts"
+        else:
+            pool = flat_rows
+            empty = sum(1 for r in pool if not str(r.get(v) or "").strip())
+            where = "list rows"
+        known = (v in ROOT_VARS or v in COMPANY_VARS or v in columns or v in custom_keys)
+        size = len(pool)
         if not known:
-            blocking.append(f"{{{{{v}}}}} is not a contact field and no list carries a "
-                            f"column of that name: it renders empty on everyone")
-        elif empty == sampled and sampled:
-            blocking.append(f"{{{{{v}}}}} is empty on all {sampled} contacts sampled")
+            blocking.append(f"{{{{{v}}}}} is not a contact field and no contact carries a "
+                            f"variable of that name: it renders empty on everyone")
+        elif size and empty == size:
+            hint = ("" if on_campaign else ", or its column is hidden in the list table of "
+                    "the app: the API only returns the visible columns")
+            blocking.append(f"{{{{{v}}}}} is empty on all {size} {where}{hint}")
+        elif empty and v in carriers:
+            blocking.append(f"{{{{{v}}}}} is {carriers[v]}, a carrier, and it is empty on "
+                            f"{empty} of {size} {where}: {empty} contact(s) would get an empty message. "
+                            f"Write those rows or remove those contacts before the launch")
         elif empty:
-            warnings.append(f"{{{{{v}}}}} is empty on {empty} of the {sampled} contacts "
-                            f"sampled, those emails will have a hole in them")
+            warnings.append(f"{{{{{v}}}}} is empty on {empty} of {size} {where}, "
+                            f"those messages will have a hole in them")
 
-    if "signature" not in {v.lower() for v in used}:
-        warnings.append("no {{signature}} in any step, the emails go out unsigned")
+    if "signature" not in used and emails:
+        warnings.append("no {{signature}} in any email step, the emails go out unsigned")
 
     print()
     for m in blocking:

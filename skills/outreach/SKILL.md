@@ -189,10 +189,11 @@ Grow, 1000 on Scale. Batch and pace accordingly.
 
 ### Building and launching a campaign, end to end
 
-These routes are not in the public documentation yet, and they were verified against
-the live API on 8 September 2026 with a plain API key, then their behaviour checked
-again against the product on 29 September 2026. They are what makes the whole
-pipeline programmable, so use them, and tell the user they are not contractual yet.
+These routes are in the public reference at
+[docs.emelia.io](https://docs.emelia.io), and their behaviour was checked against the
+product on 29 September 2026. They are what makes the whole pipeline programmable.
+With the MCP server, each one has a tool: `outreach-campaign`, section "With the MCP
+server only", lists them in build order.
 
 | Method and path | What it does |
 |---|---|
@@ -369,15 +370,22 @@ with `PATCH /advanced/campaigns/{id}/name` and `{"name": "..."}` (a `name` insid
 settings body renames it too):
 
 ```
-Croitr pilote 1 (en attente des contacts)
-Croitr pilote 1 (100 contacts charges, redaction en cours)
-Croitr pilote 1 - agences com Bordeaux
+Pilote 1 (en attente des contacts)
+Pilote 1 (100 contacts charges, redaction en cours)
+Pilote 1 - agences com Bordeaux
 ```
 
-Push the contacts as soon as they exist, before the copy is written. The batch route
-takes `?updateIfExists=true`, so pushing the same rows again later with their message
-columns updates them in place rather than duplicating them. A user who opens Emelia
-mid-run should see a campaign filling up, not an empty account.
+Push the contacts as soon as they exist, before the copy is written, **as long as no
+running campaign reads that list**. The batch route takes `?updateIfExists=true`, so
+pushing the same rows again later with their message columns updates them in place
+rather than duplicating them. A user who opens Emelia mid-run should see a campaign
+filling up, not an empty account.
+
+That early push is only safe before the launch. A contact added to a list attached to a
+running campaign enters it at step 1 within seconds, and in Mode A a contact without its
+`message` gets an empty email. Once the campaign runs, load each contact with its
+messages in the same call, or pause the campaign (or detach the list) before you load
+and write. `outreach-campaign`, section 3, has the details.
 
 ## Keep the plugin up to date
 

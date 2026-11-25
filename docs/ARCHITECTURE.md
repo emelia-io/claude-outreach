@@ -148,8 +148,8 @@ A skill detects it by looking for a tool whose name ends in `__list_campaigns` o
 **REST, `https://api.emelia.io`, header `Authorization: <key>`, when `EMELIA_API_KEY`
 is set.** The documented surface: enrichment jobs, contacts, lists, campaign creation,
 activities, replies, blacklist, the Inbox API under `/inbox/api/v1` for the emails
-themselves, plus the campaign configuration and launch routes that
-the dispatcher lists and that are not in the public documentation yet. The bundled
+themselves, and the campaign configuration and launch routes that the dispatcher
+lists. The bundled
 scripts only speak REST, so they need the key even when the MCP server is connected:
 signed in with OAuth, the access token stays inside Claude Code.
 

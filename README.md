@@ -117,9 +117,9 @@ Basile has no MCP route in this plugin yet: French B2B data always needs
 Without either, everything still runs in dry run: you get the list, the copy and the
 sequence as files, nothing is sent and nothing is charged.
 
-The whole pipeline runs through the API, campaign creation and launch included. Some
-of the configuration endpoints are not in the public documentation yet, so treat them
-as not contractual for now. See [docs/SETUP.md](docs/SETUP.md).
+The whole pipeline runs through the API, campaign creation and launch included, and
+every route it uses is in the public reference at https://docs.emelia.io. See
+[docs/SETUP.md](docs/SETUP.md).
 
 **Staying up to date.** This repository moves. Ask for an update check at any time, or
 run it yourself:

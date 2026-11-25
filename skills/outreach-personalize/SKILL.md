@@ -174,8 +174,8 @@ and write the copy with the name you declared.
 raw token. The sentence simply loses its middle and the email goes out anyway. This is
 the single most common way a good sequence is ruined at scale.
 
-**Fallbacks are Liquid, with unusual delimiters, and Liquid only sees your custom
-variables.** Emelia already uses double braces for its own variables, so its Liquid
+**Fallbacks are Liquid, with unusual delimiters, and the safe place for them is a custom
+variable.** Emelia already uses double braces for its own variables, so its Liquid
 output tag is `{#` and `#}`, and its logic tag is the standard `{% %}`:
 
 ```text
@@ -192,14 +192,16 @@ Hi {# greeting_name | default: "there" #},
 
 Order of evaluation, which explains the traps below: `{{ }}` variables are substituted
 first, then Liquid runs, then spintax runs last. Liquid runs on email and LinkedIn steps
-alike, but against your custom variables only, verified against the sending engine on
-12 October 2026. A standard field (`firstName`, `lastName`, `companyName`, `jobTitle`...)
-or a company field always reads as empty inside `{# #}` and `{% %}`, even when the
-contact has a value: `{# firstName | default: "there" #}` greets everyone with "there",
-and `{% if firstName %}` always takes the `else`. A filter inside double braces is not
+alike, and it reads your custom variables everywhere. A standard field (`firstName`,
+`lastName`, `companyName`, `jobTitle`...) or a company field is another matter: recent
+versions of the sending engine read it, but older ones read it as empty, and then
+`{# firstName | default: "there" #}` greets everyone with "there" and
+`{% if firstName %}` always takes the `else`. Until you have seen such a block render
+correctly in a test email, do not rely on it. A filter inside double braces is not
 Liquid either: `{{ firstName | default: "" }}` does not work.
 
-For a fallback on a standard field, two ways work:
+For a fallback on a standard field, the two ways below work whatever the version, and the
+first one is the recommended one:
 
 1. **A custom variable carrying the value.** Declare one whose name is neither a
    standard field nor one of its aliases (`greeting_name` works, `first_name` lands in
@@ -207,8 +209,9 @@ For a fallback on a standard field, two ways work:
    in the example above. Or write the fallback into that column yourself, `there` on the
    rows without a first name, and use `Hi {{greeting_name}},` with no Liquid at all.
 2. **A `CONDITION` on `$firstName` with `IS_EMPTY`**, each branch with its own wording.
-   Conditions read standard fields, Liquid does not. Branches never join again, so
-   everything after the condition is written twice: keep it for a step that matters.
+   Conditions read standard fields and custom variables alike. Branches never join
+   again, so everything after the condition is written twice: keep it for a step that
+   matters.
 
 Five rules that follow from that:
 
@@ -403,13 +406,15 @@ Rules:
 `outreach/leads.csv`, with the personalization columns added and the original columns
 untouched. Source and date sit next to the sentence so any claim can be checked. In
 Mode A the same file carries a `message` column, and `message_source` and `message_date`
-next to it, on exactly the same terms.
+next to it, on exactly the same terms. An excerpt, with the contract columns of
+[outreach-leads](../outreach-leads/SKILL.md) under their contract names and most of them
+left out for width; the columns this skill adds come after them:
 
 ```csv
-email,firstName,lastName,jobTitle,companyName,companyNameClean,linkedinUrlProfile,segment,source,icebreaker,icebreaker_type,icebreaker_source,icebreaker_date
-marc.leroy@kestrelpay.fr,Marc,Leroy,CTO,KESTREL PAY SAS,Kestrel Pay,https://www.linkedin.com/in/marcleroy,saas-20-200,basile,"Your changelog says the v3 API went public in June.",changelog,https://kestrelpay.fr/changelog,2026-08-29
-sophie.nguyen@baleine.io,Sophie,Nguyen,VP Engineering,Baleine SAS,Baleine,https://www.linkedin.com/in/sophienguyen,saas-20-200,basile,"You wrote last month that on call was the hardest part of the year.",linkedin_post,https://www.linkedin.com/posts/sophienguyen-oncall,2026-08-12
-t.brun@orvalgroup.fr,Thomas,Brun,Directeur technique,ORVAL GROUP,Orval,https://www.linkedin.com/in/thomasbrun,saas-20-200,basile,,,,
+email,first_name,last_name,job_title,company_name,linkedin_url,segment,source,companyNameClean,icebreaker,icebreaker_type,icebreaker_source,icebreaker_date
+marc.leroy@kestrelpay.fr,Marc,Leroy,CTO,KESTREL PAY SAS,https://www.linkedin.com/in/marcleroy,saas-20-200,basile,Kestrel Pay,"Your changelog says the v3 API went public in June.",changelog,https://kestrelpay.fr/changelog,2026-08-29
+sophie.nguyen@baleine.io,Sophie,Nguyen,VP Engineering,Baleine SAS,https://www.linkedin.com/in/sophienguyen,saas-20-200,basile,Baleine,"You wrote last month that on call was the hardest part of the year.",linkedin_post,https://www.linkedin.com/posts/sophienguyen-oncall,2026-08-12
+t.brun@orvalgroup.fr,Thomas,Brun,Directeur technique,ORVAL GROUP,https://www.linkedin.com/in/thomasbrun,saas-20-200,basile,Orval,,,,
 ```
 
 Row three has no icebreaker on purpose: nothing recent was found, so the cell stays

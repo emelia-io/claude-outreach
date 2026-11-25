@@ -30,7 +30,7 @@ Same three placeholders as the email prompt, filled the same way.
 |---|---|---|
 | `{variable}` | line 1 | The language, named in English: `French`, `German`, `Brazilian Portuguese` |
 | `{{PROSPECT}}` | inside `<prospect_info>` | One contact, built from one row of `outreach/leads.csv`. Section 3 |
-| `{{COMPANY_INFO}}` | inside `<company_info>` | Your offer, built once from `outreach/icp.json`. Section 3 |
+| `{{COMPANY_INFO}}` | inside `<company_info>` | Your offer: the block of `outreach/offer.md`, section 10, else built once from `outreach/icp.json`. Section 3 |
 
 `{{PROSPECT}}` and `{{COMPANY_INFO}}` look like Emelia variables and are not. They are
 placeholders in this prompt, replaced before the model reads the text. The only Emelia
@@ -127,8 +127,9 @@ the only one with a subject line.
 ## 3. The prospect and company blocks
 
 Built exactly as in [per-contact-prompt.md](per-contact-prompt.md), sections 3 and 4:
-one labelled line per fact, a missing line rather than `unknown`, the company block under
-about 150 words, and no claim the user cannot source. Two differences.
+one labelled line per fact, a missing line rather than `unknown`, the company block taken
+from `outreach/offer.md` when it exists and kept under about 150 words, and no claim the
+user cannot source. Two differences.
 
 - **`linkedin_url` is not optional here.** A row with no profile URL cannot be sent a
   LinkedIn message at all. Drop it from this run, and count the rows you dropped.

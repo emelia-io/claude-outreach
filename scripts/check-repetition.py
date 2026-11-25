@@ -10,7 +10,8 @@ that earns the reply, was written from a template.
     python3 scripts/check-repetition.py outreach/copy/*.json
 
 Reads the same JSON the writing agents produce: a list of objects carrying `lead_id`
-and `emailNsubject` / `emailNmessage`. Exits 1 when something crosses the threshold.
+and the columns of outreach/leads.csv, `subject_line` and `message` for step 1, then
+`subject_line_2` and `message_2` and so on. Exits 1 when something crosses the threshold.
 """
 import argparse
 import glob
@@ -54,17 +55,20 @@ def main() -> int:
         print("no contact read")
         return 2
 
+    def col(name, n):
+        return name if n == 1 else f"{name}_{n}"
+
     where = defaultdict(list)          # sentence -> [(lead_id, step)]
     for _, c in rows:
         for n in (1, 2, 3, 4):
-            for s in SENTENCE.split(c.get(f"email{n}message") or ""):
+            for s in SENTENCE.split(c.get(col("message", n)) or ""):
                 s = " ".join(s.split())
                 if len(s) > SHORT:
                     where[s].append((c.get("lead_id"), n))
     subjects = defaultdict(list)
     for _, c in rows:
         for n in (1, 3):
-            s = (c.get(f"email{n}subject") or "").strip()
+            s = (c.get(col("subject_line", n)) or "").strip()
             if s:
                 subjects[s].append(c.get("lead_id"))
 

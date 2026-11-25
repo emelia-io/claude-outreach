@@ -360,9 +360,8 @@ Four things that make this call fail, none of them obvious from the schema:
 
 LinkedIn conversations have inbox routes of their own, apart from the email inbox
 above, and no MCP tool. These routes were
-verified on 9 September 2026 and are **not in the public specification**, so treat
-them exactly like the campaign build routes in the dispatcher: use them, and tell the
-user they are not contractual yet and may change without notice.
+verified on 9 September 2026 and are **not in the public specification**: use them,
+and tell the user they are not contractual yet and may change without notice.
 
 | Method and path | What it does |
 |---|---|

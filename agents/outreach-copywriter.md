@@ -89,11 +89,11 @@ propose a link instead.
 **Variables.** Every `{{variable}}` in your copy must be in the whitelist. Every
 variable needs a fallback, written as the skill's convention requires: in Liquid, on a
 custom variable, `{# greeting_name | default: "..." #}` or a `{% if icebreaker %}`
-block, never a filter inside double braces, which does not work. Liquid cannot see
-standard fields: `{# firstName | default: "..." #}` and `{% if firstName %}` fall back
-on every contact, first name or not. A standard field gets its fallback through a custom
-variable that carries the value, as `skills/outreach-personalize/SKILL.md` section 4
-explains. No variable that can be empty may sit in a subject line. Count them: more
+block, never a filter inside double braces, which does not work. Do not put Liquid on
+a standard field: some versions of the sending engine read `{# firstName | default: "..." #}`
+and `{% if firstName %}` as empty and fall back on every contact. A standard field gets
+its fallback through a custom variable that carries the value, which works whatever the
+version, as `skills/outreach-personalize/SKILL.md` section 4 explains. No variable that can be empty may sit in a subject line. Count them: more
 than three variables in one email reads as a mail merge, not a message.
 
 **Honesty.** Every claim about the recipient must trace back to a column in

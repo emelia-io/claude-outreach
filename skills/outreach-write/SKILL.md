@@ -40,9 +40,10 @@ who replied (`outreach-replies`).
 |---|---|---|
 | Segment, titles, pain, trigger | `outreach/icp.json` | Ask for the four angle questions below, then write |
 | Column names | header row of `outreach/leads.csv` | Write with `firstName` only and say so |
-| What the product does, in one sentence | the user | Ask. Do not invent a product |
-| One number you can defend | the user | Write without proof and say the sequence has no proof |
-| One customer you may name | the user | Use mechanism proof instead (section 6 below) |
+| The offer block, `COMPANY_INFO` | section 10 of `outreach/offer.md`, written by [outreach-offer](../outreach-offer/SKILL.md) | Build it from `outreach/icp.json` and the three answers below, and say that you did |
+| What the product does, in one sentence | `outreach/offer.md`, else the user | Ask. Do not invent a product |
+| One number you can defend | `outreach/offer.md`, else the user | Write without proof and say the sequence has no proof |
+| One customer you may name | `outreach/offer.md`, else the user | Use mechanism proof instead (section 6 below) |
 | Sender name, company, city | the user | Ask. An email with no identity behind it is not legal in most markets. A LinkedIn message carries that identity in the profile, so it does not repeat it |
 | Which channels the steps use | `outreach/campaign.json`, or the user | Ask. Email and LinkedIn are written by different prompts, and a multichannel campaign needs both |
 | The language, one per country if the list spans several | question 1 in section 1 | Ask. Never default to English on a list that is not English speaking |
@@ -98,7 +99,7 @@ That is the entire adaptation surface.
 |---|---|---|
 | `{variable}` | the language, named in English | question 1 below |
 | `{{PROSPECT}}` | one labelled block per contact | a row of `outreach/leads.csv` |
-| `{{COMPANY_INFO}}` | your offer, written once for the campaign | `outreach/icp.json`, plus the number and the customer name the user gave |
+| `{{COMPANY_INFO}}` | your offer, written once for the campaign | the block in section 10 of `outreach/offer.md`; only when that file does not exist, built from `outreach/icp.json` plus the number and the customer name the user gave |
 
 The prospect block is built from `first_name`, `last_name`, `job_title`, `seniority`,
 `company_name`, `company_website`, `company_industry`, `company_headcount`, `city`,
@@ -106,8 +107,10 @@ The prospect block is built from `first_name`, `last_name`, `job_title`, `senior
 `icebreaker_source` and `icebreaker_date` when
 [outreach-personalize](../outreach-personalize/SKILL.md) has written them. An empty cell
 becomes a missing line, never `unknown`, and `email` and `phone` stay out of it. The
-company block comes from `offer.what`, `offer.problem`, `offer.proof`,
-`offer.price_point` and the segment's `why_different`, kept under about 150 words
+company block has one source: the block of `outreach/offer.md`, section 10, pasted as it
+is, one per segment when the offer has several. Only when that file does not exist is it
+built from `offer.what`, `offer.problem`, `offer.proof`, `offer.price_point` and the
+segment's `why_different` in `outreach/icp.json`, kept under about 150 words
 because the prompt handles a thin brief well and a pasted homepage badly. The line by
 line shape of both blocks, with a filled example, is in the reference, sections 3 and 4.
 
@@ -590,23 +593,27 @@ This whole section is about **email** steps. A LinkedIn step body is the message
 nothing else: no signature variable, no opt out link, no HTML. See "Mode A on LinkedIn"
 in section 1.
 
-**The reference, taken from a real running campaign.** Every step, the same shape, only
-the number changes:
+**The reference, in Mode A.** Every step, the same shape:
 
 ```
-subject: {{email1subject}}
-body:    <p>{{email1message}}</p><p></p><p>{{signature}}</p>
+subject: {{subject_line}}
+body:    <p>{{message}}</p><p></p><p>{{signature}}</p>
 ```
 
-and from step 2 onwards, with the opt out:
+and from step 2 onwards, with the opt out, and an empty subject on a step that stays in
+the thread:
 
 ```
-body:    <p>{{email2message}}</p><p></p><p>{{signature}}</p><p></p><p><a target="_blank" rel="noopener noreferrer" href="{{unsubscribe_link}}">Se désabonner</a></p>
+subject:
+body:    <p>{{message_2}}</p><p></p><p>{{signature}}</p><p></p><p><a target="_blank" rel="noopener noreferrer" href="{{unsubscribe_link}}">Se désabonner</a></p>
 ```
 
-One pair of variables per step, `emailNsubject` and `emailNmessage`, matching the column
-names in your CSV. The names are yours to choose, `email_subject_2` works as well as
-`email2subject`, as long as the column and the variable agree exactly.
+One pair of variables per step, with the names the per contact prompt writes into
+`outreach/leads.csv` and that every other skill of this repository reads: `subject_line`
+and `message` for step 1, then `subject_line_2` and `message_2`, `subject_line_3` and
+`message_3`, and so on; `li_note`, `li_message`, `li_message_2` on LinkedIn. Use exactly
+those names: the column, the declared custom variable and the step must agree letter for
+letter, or the step renders empty.
 
 **Four rules, each of which has already broken a real campaign:**
 
@@ -623,13 +630,12 @@ work.
 it.** An unresolved variable renders as **nothing**, silently, which is why
 "Hi {{firstName}}," on a row with no first name ships as "Hi ,". Emelia runs Liquid after
 the double braces are substituted, on email and on LinkedIn, with `{#` and `#}` as its
-output tag and the usual `{% %}` tags, and Liquid only sees your custom variables
-(verified against the sending engine on 12 October 2026). So
-`{% if icebreaker %}...{% endif %}` works, and `Hi {# firstName | default: "there" #},`
-does not: `firstName` is a standard field, Liquid reads it as empty on every contact, and
-everyone gets "there". A standard field gets its fallback through a custom variable that
-carries the value, `Hi {# greeting_name | default: "there" #},`, or through a
-`CONDITION` on `$firstName`. Two cautions. A malformed Liquid tag makes the
+output tag and the usual `{% %}` tags. On a custom variable it always works:
+`{% if icebreaker %}...{% endif %}`. On a standard field such as `firstName`, it depends on
+the version of the sending engine: recent ones read the field, older ones read it as
+empty and greet everyone with the default. So give a standard field its fallback through
+a custom variable that carries the value, `Hi {# greeting_name | default: "there" #},`,
+or through a `CONDITION` on `$firstName`: both work whatever the version. Two cautions. A malformed Liquid tag makes the
 engine delete every Liquid block of the message without a word, so preview each one on a
 real contact before the launch. And a default hides a column you should have filled:
 check the column is filled on every row first, and keep the fallback for the rows you
@@ -638,7 +644,7 @@ genuinely cannot fill. The syntax and its traps are in
 
 **The greeting lives in the message, not in the editor.** In Mode A the step body is the
 carrier variable and nothing else, so "Bonjour Marie," has to be inside the generated
-value of `emailNmessage`. A step that renders straight into the first sentence with no
+value of `message`. A step that renders straight into the first sentence with no
 greeting reads as a machine. In Mode B, where you write the text in the editor, the
 greeting is the first paragraph of that text.
 
@@ -734,7 +740,7 @@ this order, and say that you checked by hand.
 | Images | none, the open pixel is already one | FAIL |
 | Variables | every `{{name}}` is a column of `leads.csv` or an Emelia contact field | FAIL |
 | Filter in double braces | a pipe or a `default:` inside `{{ }}`, which does not work | FAIL |
-| Liquid on a standard field | a `{# #}` or `{% %}` block that reads a standard or company field, which Liquid cannot see | FAIL |
+| Liquid on a standard field | a `{# #}` or `{% %}` block that reads a standard or company field, which some versions of the sending engine read as empty | WARN |
 | Liquid block | a `{# #}` or `{% %}` block, to preview on a real contact | INFO |
 | Variable in subject | must carry a fallback | WARN |
 | Spam trigger words | one is a smell, three in one email is a stack | WARN then FAIL |

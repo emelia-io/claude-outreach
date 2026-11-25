@@ -36,15 +36,14 @@ running: that is [`outreach-audit`](../outreach-audit/SKILL.md).
 |---|---|---|
 | A sentence about who you sell to and what you sell | yes | ask for it, do not guess |
 | The country or countries you will email | yes | ask, the rules differ by market |
-| `EMELIA_API_KEY` in the environment | for enrichment and sending | offer dry run: every file is still produced, nothing is sent, nothing is charged |
+| The Emelia MCP server, or `EMELIA_API_KEY` in the environment | for enrichment and sending | offer to connect the MCP server, as the dispatcher does, else dry run: every file is still produced, nothing is sent, nothing is charged |
 | A source of contacts (Basile key, a Sales Navigator search URL, or a CSV) | yes | ask which one, a CSV always works |
 | A sending domain with SPF, DKIM and DMARC, and warmup running | before launch only | say it at step 1, not at step 8, so the user can start warmup today |
 | A sending mailbox connected in Emelia, and an active subscription | before launch only | say it at step 1: `outreach-campaign` builds the whole campaign through the API (steps, schedule, list, sending accounts) and starts it after an explicit yes, but connecting a mailbox and subscribing happen in the app |
 
-`BASILE_API_KEY` is optional and only used if the list comes from Basile. The MCP
-server is optional too: the pilot uses the REST API by default and reaches for MCP
-only where REST has no equivalent (campaign statistics, warmup status, sending
-accounts, list management). Check whether it is configured, never assume.
+`BASILE_API_KEY` is optional and only used if the list comes from Basile. For Emelia the
+pilot does what the dispatcher says: the MCP server when it is connected, the REST API
+with `EMELIA_API_KEY` otherwise. Check which one is there, never assume.
 
 Write nothing outside `outreach/` in the current directory.
 
@@ -155,13 +154,26 @@ and unknown rows from the pilot rather than "trying them anyway", because on 100
 contacts you cannot afford their bounce risk. If you end up below 80 usable rows,
 source more before launching: a pilot on 60 contacts answers nothing.
 
-**Step 5. Write the sequence.**
-Run [`outreach-write`](../outreach-write/SKILL.md).
-Produces `outreach/sequence.md`: subject, first email, two follow ups.
-One angle, one ask, no A/B at this size.
+**Step 5. Write the sequence, then the per contact parts.**
+Run [`outreach-write`](../outreach-write/SKILL.md), then
+[`outreach-personalize`](../outreach-personalize/SKILL.md). Both, every time.
+First fix the mode with the user, out loud, and write it in the `Mode:` line of
+`outreach/sequence.md`: Mode A, one message written for each person, which at 100
+contacts fits inside a Claude Code subscription; or Mode B, one written text with a
+per contact icebreaker, when the file is too thin to write a whole message from
+(`outreach-personalize`, section 1b, decides that). One angle, one ask, no A/B at this
+size, whatever the mode.
+Produces `outreach/sequence.md` (the text, or in Mode A the carriers), and the per
+contact columns in `outreach/leads.csv`.
+`outreach-personalize` is not optional here. It generates 20 rows first and holds the
+other 80 until the six gates of its section 7 pass, then counts the blank cells of every
+variable the copy uses. In Mode A, a row with no message leaves the list, and you say how
+many.
 *Check before continuing:* read the first email as if it landed in your own inbox on a
-Tuesday morning. Is every claim in it true? Do all the variables fill correctly on your
-first three rows? Is the ask small enough to answer in one line? If the email needs a
+Tuesday morning. Is every claim in it true? Is the ask small enough to answer in one
+line? The sample of 20 passed its six gates, and `outreach/pilot.md` records the mode and
+the blank count of each variable: 0 on every carrier in Mode A, the exact number in Mode
+B. If the email needs a
 paragraph to explain what you do, the offer is not ready and no sequence will fix it.
 
 **Step 6. Design the flow.**

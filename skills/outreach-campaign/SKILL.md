@@ -78,19 +78,21 @@ the campaign routes take, there is no import step between the two.
 **Read the columns of the lists you did not build.** Every list in the `GET` above carries
 a `columnPreferences` array, and that array is the list of variables the copy can use. A
 key that starts with `custom` is a custom variable: strip that prefix and lowercase the
-next letter to get the name the message uses, so `customEmail1subject` is
-`{{email1subject}}`. A list that already carries `customEmail1subject`,
-`customEmail1message` and their followers has been written for a previous campaign, and
-those columns are the carriers to reuse. Writing new ones next to them means the campaign
-sends the old copy or the new one depending on which name the steps reference, and a wrong
-name renders empty with no error. Read the columns, then name the carriers to match.
+next letter to get the name the message uses, so `customIcebreaker` is
+`{{icebreaker}}`. A list that already carries message columns has been written for a
+previous campaign, under this repository's names (`subject_line`, `message`,
+`message_2`...) or under older ones (`email1message` and the like). Always write this
+repository's names and point the steps at exactly those: a column a step does not name is
+never read, and a step that names a column the contacts do not carry renders empty with
+no error. Read the columns first, so you know which of the two you are looking at.
 
 Never reuse a list that already feeds another running campaign unless that is what the
 user asked for: every contact in it would enter the new campaign too.
 
 ### 2. Load the contacts in bulk
 
-One call carries up to 100 contacts:
+One call carries up to 100 contacts. With MCP it is `add_contacts_to_list_bulk` with
+`{ listId, contacts: [...], updateIfExists: true }`, the same route underneath:
 
 ```bash
 curl -s -X POST "https://api.emelia.io/lists/list/<listId>/contacts/batch?updateIfExists=true" \
@@ -99,7 +101,7 @@ curl -s -X POST "https://api.emelia.io/lists/list/<listId>/contacts/batch?update
     {"firstName":"Claire","lastName":"Fontaine","email":"claire.fontaine@nexora.fr",
      "companyName":"Nexora","companyDomain":"nexora.fr",
      "linkedinUrlProfile":"https://www.linkedin.com/in/clairefontaine",
-     "icebreaker":"your migration to Postgres 16 last month"}
+     "icebreaker":"The move to Postgres 16 went live last month."}
   ]}'
 ```
 
@@ -118,15 +120,17 @@ curl -s -X POST "https://api.emelia.io/lists/list/<listId>/contacts/batch?update
      `Site Web` in `websiteUrl`, `Domaine` in `companyDomain`. A prefix or a suffix of a
      field name can match as well;
   2. a custom variable that already exists on the account;
-  3. a name ending in `id` stops there: its value is never inspected;
+  3. a name ending in `id` becomes a custom variable without its value being looked at;
   4. **value sniffing**: a value that looks like an email, a phone number, a LinkedIn
      profile, an X account, a company website or a LinkedIn company page lands in the
      first standard field of that kind that is still empty. The phone pattern is loose,
      about six grouped digits are enough, so **a SIREN sent under an undeclared name
      lands in `phone`**. An unknown key whose value looks like one of those never becomes
      a custom variable;
-  5. only then is a new custom variable created, and its name is flattened:
-     `basile_gmb_name` becomes `basilegmbname`.
+  5. only then is a new custom variable created. The name it gets is not always the key
+     you sent, so read it back in `createdCustomVariables` (below) and write the copy
+     with that name. A declared variable whose name is already a clean identifier
+     (a letter, then letters, digits or `_`) keeps it.
 - The standard fields. On the contact: `firstName`, `lastName`, `fullName`, `email`,
   `secondaryEmail`, `phone`, `mobilePhone`, `jobTitle`, `gender`, `age`, `birthDate`,
   `language`, `profilePictureUrl`, `linkedinUrlProfile`, `twitterUrl`, `country`,
@@ -138,7 +142,10 @@ curl -s -X POST "https://api.emelia.io/lists/list/<listId>/contacts/batch?update
   `twitterCompanyUrl`, `notes`, `tags`. Accepted on import does not mean usable in a
   message: section 5 lists the ones a variable resolves.
 - **Declare your custom variables before the first batch**, so step 2 catches them before
-  step 4 can: `POST /lists/custom-variable` with
+  step 4 can. In Mode A that means every carrier the steps will name: `subject_line`,
+  `message`, `subject_line_2`, `message_2` and so on, plus `li_note`, `li_message`,
+  `li_message_2`... on LinkedIn. With MCP it is `create_custom_variable` with
+  `{ technicalName, schema: "lead", displayName }`. Over REST, `POST /lists/custom-variable` with
   `{"technicalName": "company_siren", "schema": "lead", "displayName": "SIREN"}`, once per
   variable (`schema` is `lead` or `company`). It answers 201 when it creates the
   variable and 422 when it already exists, so call it on every run; a 422 also comes back
@@ -203,6 +210,20 @@ The consequences, all of which surprise people the first time:
 - A list attached to two campaigns feeds both. Someone would get both sequences.
 - Excluding people is done with an exclusion list on the campaign, not by trimming the
   main list.
+- **On a running campaign, a contact you add enters at step 1 within seconds**, with
+  whatever it carries at that moment. In Mode A, a contact loaded without its `message`
+  gets an empty email, and nothing warns you. So once the campaign runs, load each
+  contact **with all its messages in the same call**, never the contact first and the
+  messages afterwards. If you cannot, pause the campaign (`pause_campaign`, or
+  `POST /advanced/campaigns/{id}/pause`) or detach the list before loading, and start
+  again once every row is complete. Pausing deletes the pending actions, conditions and
+  manual tasks; they are created again when the contacts reach those steps after the
+  restart.
+- **Changes reach the campaign in the background.** A value you change on a list contact
+  (`update_contact`, or a batch with `updateIfExists=true`) is copied to the campaigns
+  that use the list asynchronously, and a list you just attached takes a moment to show
+  up as recipients (`recipients.processing` is true meanwhile). Before a launch, read the
+  campaign side back (section 7), not only the list.
 - `POST /advanced/campaign/contacts` with `{ "id": "<campaignId>", "contact": {...} }`
   does exist and pushes one contact straight into a campaign. Use it only for a one off
   addition: those contacts are not in a reusable list, so you cannot re-target them
@@ -286,13 +307,20 @@ step you add goes in without an `_id`, or with one generated as above.
 And a campaign that is `RUNNING` refuses every one of these calls with
 `You must pause your campaign before updating it`. Pause, patch, start again.
 
-**What goes in an email step, verbatim.** Subject and body are the carrier variables,
-never the written text:
+**What goes in an email step.** It depends on the mode in the header of
+`outreach/sequence.md`. In Mode A the subject and the body are the carrier variables, and
+nothing else:
 
 ```
-subject: {{email1subject}}
-body:    <p>{{email1message}}</p><p></p><p>{{signature}}</p>
+subject: {{subject_line}}
+body:    <p>{{message}}</p><p></p><p>{{signature}}</p>
 ```
+
+Step 2 carries `{{message_2}}` with an empty subject to stay in the thread, step 3
+`{{subject_line_3}}` and `{{message_3}}`, step 4 `{{message_4}}`: the same names as the
+columns of `outreach/leads.csv`, letter for letter. In Mode B the body is the written
+text of `sequence.md`, turned into `<p>` paragraphs, with its small variables
+(`{{firstName}}`, `{{icebreaker}}`) where the copy puts them, then `{{signature}}`.
 
 From step 2 the opt out link is appended, as a real anchor:
 
@@ -306,7 +334,7 @@ the body renders as nothing, which turns the whole email into one block.
 **Inside a variable's value it is the opposite: a `\n` becomes a paragraph break.** The
 sending engine converts `\n\n` to `</p><p></p><p>` and `\n` to `</p><p>` when it
 substitutes a value. That is exactly why the carrier pattern works: you write the message
-into `email1message` as plain text with ordinary line breaks, and it comes out as
+into `message` as plain text with ordinary line breaks, and it comes out as
 paragraphs. Write HTML in the body, plain text with `\n` in the variable, and never the
 other way round.
 
@@ -314,16 +342,17 @@ Variables are double braces, `{{firstName}}`. A name that does not resolve rende
 empty, silently, with no error, so the campaign sends "Bonjour ," rather than failing.
 Double braces take no filter and no default: `{{ firstName | default: "" }}` does not
 work. A default is written in Liquid, which runs after the double braces are substituted,
-with `{#` and `#}` as its output tag and the usual `{% %}` tags, and **Liquid only sees
-your custom variables**: `{# icebreaker | default: "..." #}` and
-`{% if icebreaker %}...{% endif %}` work. On a standard field (`firstName`, `lastName`,
-`companyName`, `jobTitle`...) or a company field, Liquid always reads an empty value, even
-when the contact has one: `{# firstName | default: "there" #}` says "there" to everyone,
-and `{% if firstName %}` is always false. For a fallback on a standard field, copy the
-value into a custom variable you declared and put the Liquid on that one, or branch with a
+with `{#` and `#}` as its output tag and the usual `{% %}` tags. On a custom variable it
+works everywhere: `{# icebreaker | default: "..." #}` and
+`{% if icebreaker %}...{% endif %}`. On a standard field (`firstName`, `lastName`,
+`companyName`, `jobTitle`...) or a company field, it depends on the version of the sending
+engine: recent versions read the field, older ones read it as empty, which makes
+`{# firstName | default: "there" #}` say "there" to everyone. Until you have seen it
+render correctly in a test email, take the route that works in both cases: copy the value
+into a custom variable you declared and put the Liquid on that one, or branch with a
 `CONDITION` on `$firstName` with `IS_EMPTY` (details in `outreach-personalize`,
 section 4). A malformed Liquid tag makes the engine delete every Liquid block of the
-message without a word, so preview each one on a real contact. Guaranteeing the data is
+message without a word, so preview each one in a test email. Guaranteeing the data is
 still the better practice: every variable a step uses should be filled on every contact
 of the list, which is what the pre-flight below checks.
 
@@ -376,8 +405,9 @@ Variables, exactly as the engine resolves them:
   variable is in that step's body, so step 1 goes out without it.
 - `{{SENDER}}` is not resolved by the sending engine and renders empty. Write your own
   name in the copy instead.
-- Resolution order is contact field, then custom variable, then company field. A custom
-  variable named `city` will never win over the contact's own `city`.
+- Resolution order is contact field, then custom variable, then company field, and an
+  empty value passes to the next one. A custom variable named `city` is used only for the
+  contacts whose own `city` is empty.
 
 ### 6. Cadence, sending accounts and recipients
 
@@ -457,10 +487,48 @@ each entry carries a `name` and at least one of `email` or `linkedin`.
 **Recipients**: attach the list from section 1. Confirm the contact count Emelia shows
 matches the rows you loaded. A campaign is capped at 30,000 recipients.
 
+### 6b. With the MCP server only, the whole build in order
+
+Signed in with OAuth, the shell holds no key: none of the `curl` calls above can run, and
+neither can `scripts/preflight-campaign.py`. Every route of this skill has an MCP tool,
+and the build is the same, in the same order. Tell the user you are building through the
+MCP server, then:
+
+1. `list_lists`, then `create_list { name }` if the list does not exist yet. Name it like
+   the campaign.
+2. `create_custom_variable { technicalName, schema: "lead", displayName }` for every
+   custom variable the steps will name, carriers included (`check_custom_variable` says
+   whether one exists). A 422 means it is already there.
+3. `add_contacts_to_list_bulk { listId, contacts, updateIfExists: true }`, 100 contacts
+   per call, each with every column the steps need, messages included. Report the
+   `created`, `duplicates`, `updated` and `failed` counts, and read the names in
+   `createdCustomVariables`.
+4. `create_campaign { name }`. Keep the id it returns.
+5. `get_campaign_sequence_guide` once, then `get_campaign { campaignId }` to read the
+   default tree, then `update_campaign_steps { campaignId, steps }` with the whole tree:
+   no `_id` anywhere except `"START"` on the root.
+6. `update_campaign_settings { campaignId, settings }`, with the fields and rules of
+   section 6: `trackLinks`, `trackOpens`, `blacklistUnsub`, `start` and `end` in every
+   call.
+7. `list_email_providers`, and `list_linkedin_accounts` when the sequence has a LinkedIn
+   step. Show the addresses you picked, get a yes, then
+   `update_campaign_identities { campaignId, identities: [{ name, email, linkedin }] }`,
+   where `email` and `linkedin` are ids, not addresses.
+8. `update_campaign_recipients { campaignId, lists: [listId] }`.
+9. The pre-flight of section 7, with the MCP tools it lists, on every contact.
+10. `send_campaign_test_email { campaignId, stepId, versionId, email }`, once per email
+    step and per version.
+11. The summary of section 8 and an explicit yes, then `start_campaign { campaignId }`,
+    then `get_campaign` again to read `RUNNING`.
+
+`pause_campaign`, `rename_campaign`, `schedule_campaign_start` and
+`list_campaign_contacts` cover the rest. Steps, identities and settings can only change
+while the campaign is not `RUNNING`: pause first.
+
 ### 7. Pre-flight, all of it, before you ask anything
 
 Run the mechanical half first, against the campaign as Emelia now holds it, not against
-your files:
+your files. With the key:
 
 ```bash
 python3 scripts/preflight-campaign.py <campaignId>
@@ -470,15 +538,66 @@ It reads the campaign back, walks the tree including the branches, and checks wh
 200 response will not tell you: an identity is attached, a list is attached and holds
 contacts, every step `_id` is 24 lowercase hex characters and appears once in the tree,
 no body is empty or missing its `<p>` paragraphs, the first email has a
-subject, no filter sits inside double braces, no condition tests a field the engine
-cannot read, and every `{{variable}}` any step uses resolves on the contacts of the
-attached lists. That last one is the check that matters: it samples the list and tells
-you a variable is empty on 25 of 99 contacts, which is 25 emails with a hole in them and
-no error anywhere. It also warns when a LinkedIn message step carries several versions
-(they all go out, one after another, which is not an A/B test), when a body uses Liquid,
-which you then preview, and when `eventToStop` holds `BOUNCED` while a condition
-branches on it. It blocks a Liquid block that reads a standard or company field, which
-Liquid cannot see. It exits non zero when something blocks.
+subject, no filter sits inside double braces, `{{signature}}` is lowercase, no condition
+tests a field the engine cannot read, and every `{{variable}}` any step uses, email and
+LinkedIn, resolves on **every** contact. That last one is the check that matters. It
+reads all the contacts of the campaign, page after page, with the custom values the
+engine will actually send, and all the rows of the attached lists for the standard and
+company fields that listing does not return. It then tells you a variable is empty on 25
+of 1,139 contacts, which is 25 emails with a hole in them and no error anywhere.
+
+**A carrier is blocking.** A step whose body is one variable and nothing else (once
+`{{signature}}`, the opt out anchor and the tags are set aside) is a carrier, which is
+Mode A. A carrier empty on a single contact is an empty email or an empty LinkedIn
+message for that contact, so the script blocks, and so do you: write those rows or
+remove those contacts before the launch, no exception. The same goes for a subject made
+of one variable.
+
+It also warns when a LinkedIn message step carries several versions (they all go out,
+one after another, which is not an A/B test), when a body uses Liquid, which you then
+preview, when Liquid reads a standard or company field (see section 5), and when
+`eventToStop` holds `BOUNCED` while a condition branches on it. A column hidden in the
+list table of the app is missing from the API rows, so a variable empty on every row may
+be hidden rather than empty: the script says so. It exits non zero when something
+blocks.
+
+**Without a key, the same pre-flight with the MCP tools.** Signed in with OAuth, the
+script cannot run, so do its work yourself, in this order, and report it the same way:
+
+1. `get_campaign { campaignId }`. Check the identities, the attached lists, every step
+   and version `_id` (24 lowercase hex characters, each once, `"START"` on the root
+   only), every body (not empty, `<p>` paragraphs, `{{signature}}` lowercase, an opt out
+   anchor from step 2 on), the subject of the first email, no `|` or `default:` inside
+   double braces, and every condition field (an activity, or a field written with `$`).
+2. List every `{{name}}` of every version of every step, email and LinkedIn, and mark
+   the carriers as above.
+3. `list_campaign_contacts { campaignId, page: 0, perPage: 1000 }`, then `page: 1`,
+   `page: 2`... until you hold `count` contacts. `page` is zero based. Each contact
+   carries its custom variables in `custom`, and `firstName`, `lastName`, `email`,
+   `phone` and `linkedinUrlProfile` at the top. Count, for each variable, the contacts
+   where it is missing or blank. All of them, never a sample.
+4. For the standard fields that listing does not return (`jobTitle`, `companyName`,
+   `city`...) and the company fields, `get_list_contacts { listId, page: 1, pageSize: 100 }`
+   on each attached list, page after page until `total`.
+5. Block on a carrier with a single blank, on a variable blank everywhere, and on a
+   variable no contact carries. Report every other count. If `count` is 0 while the
+   lists hold contacts, the recipients are still being set up: wait a minute and read
+   again.
+
+**What the test email proves, and what it does not.**
+`POST /advanced/campaigns/{id}/test-email`, or `send_campaign_test_email` with MCP, takes
+exactly this body, the ids coming from `GET /advanced/campaigns/{id}`:
+
+```json
+{ "stepId": "<_id of the email step>", "versionId": "<_id of the version>", "email": "you@your-domain.com" }
+```
+
+It sends **one version of one email step**, to that address, from one of the campaign
+identities, **with the variables of a contact picked at random** in the campaign. You do
+not choose the contact. So it proves the layout, the signature, the links and that the
+variables resolve on that one contact, and nothing about the others: that is what the
+count above is for. Send one per email step and per version, only to an address of the
+user, since it lands in a real inbox.
 
 Then the half a script cannot do:
 
@@ -487,12 +606,12 @@ Then the half a script cannot do:
 | Deliverability | `## Verdict` in `outreach/deliverability.md` | READY, or READY WITH LIMITS and the cadence set to that cap |
 | List verified | the verification column in `outreach/leads.csv` | every row verified, invalid rows removed |
 | Unsubscribe | grep the copy | `{{unsubscribe_link}}` present from step 2 onwards, as a link and not a bare variable |
-| Variables resolved | count blanks per variable across the CSV | 0 blanks, or a fallback written into the copy |
-| Test email | send one from the campaign to your own address | received, read on a phone, every variable filled, links working |
+| Variables resolved | the count on every campaign contact, above | 0 blanks, or a fallback written into the copy. In Mode A, 0 blanks on every carrier, without exception |
+| Test email | one per email step and version, to the user's own address | received, read on a phone, signature and links working, the random contact it used reads right |
 | Subject on step 1 | `GET /advanced/campaigns/{id}` | not empty |
 | Body is HTML | `GET /advanced/campaigns/{id}` | every step body contains `<p>`, and no raw `\n` |
-| Variable syntax | `GET /advanced/campaigns/{id}` | variables as `{{name}}`, with no pipe and no `default:` inside the double braces. Any `{# #}` or `{% %}` Liquid block reads a custom variable only, and was seen rendered on a real contact in the test email |
-| Carrier columns | `get_list_contacts` on one row | every `emailNsubject` and `emailNmessage` the steps reference exists and is filled |
+| Variable syntax | `GET /advanced/campaigns/{id}` | variables as `{{name}}`, with no pipe and no `default:` inside the double braces. A `{# #}` or `{% %}` block on a standard field was seen rendered correctly in a test email, or moved onto a custom variable |
+| Carrier columns | the campaign contacts, above | every `subject_line`, `message`, `message_2`... the steps reference is filled on every contact |
 | Greeting | one rendered sample | the message opens with a greeting, not with the first sentence |
 | Subscription | Emelia account | active, the product refuses to start a campaign without one |
 | Identities | `GET /advanced/campaigns/{id}` | at least one, none disconnected or expired |
@@ -605,9 +724,10 @@ read.
 - **A rate limit error while loading contacts.** Stop, wait a minute, resume at the row
   that failed. Do not restart the batch: the rows already loaded would come back as
   duplicates.
-- **The test email arrives with `{{firstName}}` in it.** The variable name in the copy does
-  not match a key on the contact. Compare them character by character, they are case
-  sensitive.
+- **A variable is empty in the test email.** The name in the copy does not match a key
+  on the contact, character by character (names are case sensitive), or the contact the
+  test picked at random has no value for it. The count of the pre-flight tells you which:
+  empty everywhere is a name, empty on a few is data.
 - **The campaign runs, the contacts pile up on one step and nothing shows in
   `/failed-activities`, or a contact receives the same LinkedIn message again.** A step
   `_id` is a UUID, a label or uppercase hex instead of 24 lowercase hex characters. The

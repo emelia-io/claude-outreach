@@ -293,9 +293,10 @@ Why it happens, in order of frequency:
 2. **The variable exists but the cell is empty**, and there is no fallback. Every
    variable needs one, written in Liquid on a custom variable
    (`{# icebreaker | default: "..." #}`), since a filter inside double braces does not
-   work. Liquid cannot see standard fields: `{# firstName | default: "..." #}` prints
-   the default to everyone, so a standard field gets its fallback through a custom
-   variable that carries the value (`outreach-personalize`, section 4). A variable that
+   work. On a standard field, some versions of the sending engine read
+   `{# firstName | default: "..." #}` as empty and print the default to everyone, so a
+   standard field gets its fallback through a custom variable that carries the value,
+   which works whatever the version (`outreach-personalize`, section 4). A variable that
    can be empty must never sit in a subject line.
 3. **A typo created a new variable instead of failing.** A key Emelia does not
    recognise, by name, alias or the look of its value, becomes a custom variable. So a

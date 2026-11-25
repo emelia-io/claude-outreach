@@ -17,7 +17,7 @@ append rules to its block 2, and nothing else about it moves.
 |---|---|---|
 | `{variable}` | line 1 | The language, named in English: `French`, `German`, `Brazilian Portuguese` |
 | `{{PROSPECT}}` | inside `<prospect_info>` | One contact, built from one row of `outreach/leads.csv`. Section 3 |
-| `{{COMPANY_INFO}}` | inside `<company_info>` | Your offer, built once from `outreach/icp.json`. Section 4 |
+| `{{COMPANY_INFO}}` | inside `<company_info>` | Your offer: the block of `outreach/offer.md`, section 10, else built once from `outreach/icp.json`. Section 4 |
 
 `{{PROSPECT}}` and `{{COMPANY_INFO}}` look like Emelia variables and are not. They are
 placeholders in this prompt, replaced before the model reads the text, and none of this
@@ -157,9 +157,14 @@ rather than generating a message with a hole in it, and count the rows you remov
 
 ## 4. Building the company block
 
-Built once per campaign, reused on every row, from `outreach/icp.json` plus the two
-things [outreach-write](../SKILL.md) asks the user for: one number they can defend and
-one customer they may name.
+One source, read in this order. When `outreach/offer.md` exists, its section 10 holds the
+block, written and approved with the user by
+[outreach-offer](../../outreach-offer/SKILL.md): paste it as it is, and use the block of
+the segment you are writing for when there are several. Only when that file does not
+exist, build the block once per campaign from `outreach/icp.json` plus the two things
+[outreach-write](../SKILL.md) asks the user for: one number they can defend and one
+customer they may name, with the lines below. Either way it is reused unchanged on every
+row.
 
 | Line | Where it comes from |
 |---|---|

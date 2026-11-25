@@ -233,16 +233,19 @@ it will not find an address for a row the filter dropped.
 
 ## `/outreach write <angle>`
 
-Writes the sequence: subject lines, the first email, the follow-ups and the break-up,
-per segment, with the variables that exist in your list and no others. Then checks
-its own output for spam signals, unresolved variables, truncated subjects and claims
-it cannot source.
+Writes the first message for every contact, in batches of eight: an observation about
+the problem your offer solves as it arises for that person, the offer answering it, one
+question asking for 15 minutes. It asks which follow ups are shared by the target and
+which are written per contact too. Every message is checked mechanically (invented
+numbers, the company named, flattery, an observation unrelated to the offer, length,
+repetition across the batch), retried, shortened, and a contact is dropped after three
+failed attempts. The steps go into `outreach/sequence.md`.
 
 - **Argument** `<angle>`: the problem you are leading with, in a few words. Omit it
   and it proposes three angles from the ICP.
-- **Reads** `outreach/icp.json`, the header of `outreach/leads.csv` for the variable
-  whitelist.
-- **Writes** `outreach/sequence.md`
+- **Reads** `outreach/offer.md`, `outreach/icp.json`, `outreach/leads.csv`
+- **Writes** the message columns of `outreach/leads.csv`, `outreach/copy/` (the cards,
+  the batches and their checks), and `outreach/sequence.md`
 - **Skill** [`outreach-write`](../skills/outreach-write/SKILL.md)
 - **Agent** [`outreach-copywriter`](../agents/outreach-copywriter.md), one per segment or variant
 - **Credits** none
@@ -254,10 +257,11 @@ it cannot source.
 
 ## `/outreach personalize <list>`
 
-Writes a per-contact opening line from what is actually in the row, and fills the
-custom fields the sequence expects. It will not write a sentence it cannot source
-from a column, which is why some rows come back with the generic opener and are
-reported as such.
+The gate on what is written per contact: the first 20 read as whole messages before the
+rest is written, and the blank cells of every column the steps use counted. For a shared
+text (Mode B), it also writes a per contact opening line from what is actually in the
+row, and never a sentence it cannot source from a column, which is why some rows come
+back with the generic opener and are reported as such.
 
 - **Argument** `<list>`: path to a CSV. Defaults to `outreach/leads.csv`.
 - **Reads** `outreach/leads.csv`, `outreach/sequence.md`

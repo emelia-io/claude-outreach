@@ -9,7 +9,8 @@ no opt out. The API accepts all of it and says 200.
 Variables are counted on every contact, page after page, never on a sample: the custom
 values come from the campaign's own contacts, which is what the engine sends, and the
 standard and company fields from every row of the attached lists. A step whose body is a
-single variable (Mode A) blocks as soon as one contact has it empty.
+single variable (Mode A), or a body that opens on a variable alone in its paragraph (the
+greeting), blocks as soon as one contact has it empty.
 
     EMELIA_API_KEY=... python3 scripts/preflight-campaign.py <campaignId>
 
@@ -132,6 +133,12 @@ def carrier(text: str):
     rest = re.sub(r"\{\{\s*signature\s*\}\}", " ", rest)
     rest = re.sub(r"<[^>]+>|&nbsp;", " ", rest)
     m = re.fullmatch(r"\s*\{\{\s*([A-Za-z0-9_]+)\s*\}\}\s*", rest)
+    return m.group(1) if m else None
+
+
+def opening(text: str):
+    """The variable a body opens on, alone in its paragraph or its line: a greeting."""
+    m = re.match(r"\s*(?:<p[^>]*>)?\s*\{\{\s*([A-Za-z0-9_]+)\s*\}\}\s*(?:</p>|\n)", text)
     return m.group(1) if m else None
 
 
@@ -267,6 +274,9 @@ def main() -> int:
                 name = carrier(text)
                 if name and name.lower() not in ENGINE_VARS:
                     carriers.setdefault(name, f"the {what} of {label}")
+            name = opening(msg)
+            if name and name.lower() not in ENGINE_VARS and name not in carriers:
+                carriers[name] = f"the greeting that opens {label}"
     for s, n in emails:
         for v in s.get("versions") or []:
             msg = v.get("message") or ""
@@ -354,8 +364,8 @@ def main() -> int:
                     "the app: the API only returns the visible columns")
             blocking.append(f"{{{{{v}}}}} is empty on all {size} {where}{hint}")
         elif empty and v in carriers:
-            blocking.append(f"{{{{{v}}}}} is {carriers[v]}, a carrier, and it is empty on "
-                            f"{empty} of {size} {where}: {empty} contact(s) would get an empty message. "
+            blocking.append(f"{{{{{v}}}}} is {carriers[v]}, and it is empty on "
+                            f"{empty} of {size} {where}: {empty} contact(s) would receive it empty. "
                             f"Write those rows or remove those contacts before the launch")
         elif empty:
             warnings.append(f"{{{{{v}}}}} is empty on {empty} of {size} {where}, "

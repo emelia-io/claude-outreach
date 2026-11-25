@@ -157,18 +157,20 @@ source more before launching: a pilot on 60 contacts answers nothing.
 **Step 5. Write the sequence, then the per contact parts.**
 Run [`outreach-write`](../outreach-write/SKILL.md), then
 [`outreach-personalize`](../outreach-personalize/SKILL.md). Both, every time.
-First fix the mode with the user, out loud, and write it in the `Mode:` line of
-`outreach/sequence.md`: Mode A, one message written for each person, which at 100
-contacts fits inside a Claude Code subscription; or Mode B, one written text with a
-per contact icebreaker, when the file is too thin to write a whole message from
-(`outreach-personalize`, section 1b, decides that). One angle, one ask, no A/B at this
-size, whatever the mode.
+First fix the mode with the user, out loud, and write it in the header of
+`outreach/sequence.md`: Mode A, the first message written for each person, which at 100
+contacts fits inside a Claude Code subscription, with question 0 of `outreach-write`
+answered (the follow ups shared, written per contact, or a mix; for a pilot the short
+advice is shared); or Mode B, one written text with a per contact icebreaker, when the
+cards are too thin to write a whole message from (`outreach-personalize`, section 1b,
+decides that). One angle, one ask, no A/B at this size, whatever the mode.
 Produces `outreach/sequence.md` (the text, or in Mode A the carriers), and the per
 contact columns in `outreach/leads.csv`.
-`outreach-personalize` is not optional here. It generates 20 rows first and holds the
-other 80 until the six gates of its section 7 pass, then counts the blank cells of every
-variable the copy uses. In Mode A, a row with no message leaves the list, and you say how
-many.
+`outreach-personalize` is not optional here. In Mode A the first 20 contacts are written
+and checked first, and read as whole messages before the other 80 are written; in Mode B
+it generates 20 icebreakers first. Either way the six gates of its section 7 pass before
+the rest, then it counts the blank cells of every variable the steps use. A row with no
+message leaves the list, and you say how many.
 *Check before continuing:* read the first email as if it landed in your own inbox on a
 Tuesday morning. Is every claim in it true? Is the ask small enough to answer in one
 line? The sample of 20 passed its six gates, and `outreach/pilot.md` records the mode and

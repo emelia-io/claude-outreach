@@ -1,6 +1,6 @@
 ---
 name: outreach-offer
-description: "Turns what you sell into an offer a stranger would answer. Starts from a sentence you write, from your website (it reads the homepage, the pricing page, the service pages, the case studies, the about page and the blog titles with WebFetch and WebSearch) or from nothing at all. Names the category you are filed under, writes out the sentence every one of your competitors already uses, and runs the swap test: if a competitor can put their logo on your sentence without changing a word, that is a description of your trade and not an offer. Then applies the levers that make an offer specific (a narrow segment, a result with a number, a named mechanism, a deadline, risk reversal, an unusual format, a contrarian angle), and refuses to manufacture proof you do not have. Writes outreach/offer.md, ending in a paste ready block that fills the COMPANY_INFO placeholder of the per contact writing prompt. Triggers on: offer, my offer, value proposition, value prop, positioning, what do I sell, what we sell, USP, unique selling point, differentiation, differentiator, we sound generic, everyone says the same thing, my pitch, elevator pitch, company info, COMPANY_INFO, read my website, analyse my website, why would they buy from me, proof, case study, guarantee, productized offer, no one replies to my emails."
+description: "Turns what you sell into an offer a stranger would answer. Starts from a sentence you write, from your website (it reads the homepage, the pricing page, the service pages, the case studies, the about page and the blog titles with WebFetch and WebSearch) or from nothing at all. Names the category you are filed under, writes out the sentence every one of your competitors already uses, and runs the swap test: if a competitor can put their logo on your sentence without changing a word, that is a description of your trade and not an offer. Then applies the levers that make an offer specific (a narrow segment, a result with a number, a named mechanism, a deadline, risk reversal, an unusual format, a contrarian angle), and refuses to manufacture proof you do not have. Writes outreach/offer.md, ending in a paste ready block, COMPANY_INFO, the sender block of the writing prompts. Triggers on: offer, my offer, value proposition, value prop, positioning, what do I sell, what we sell, USP, unique selling point, differentiation, differentiator, we sound generic, everyone says the same thing, my pitch, elevator pitch, company info, COMPANY_INFO, read my website, analyse my website, why would they buy from me, proof, case study, guarantee, productized offer, no one replies to my emails."
 license: MIT
 metadata:
   author: Emelia
@@ -17,8 +17,8 @@ Turns what you sell into a sentence a stranger has a reason to answer, and write
 page. Its core job is one thing: get you out of the sentence your whole category uses,
 because that sentence is the first reason cold email fails, well before the copy.
 
-The file ends with a block you paste straight into the `{{COMPANY_INFO}}` placeholder of
-the per contact writing prompt. Nothing here spends Emelia credits and nothing is sent.
+The file ends with a block the writing prompts paste as their sender block, the
+`COMPANY_INFO` block. Nothing here spends Emelia credits and nothing is sent.
 
 ## When to use it
 
@@ -357,16 +357,18 @@ What changes for this segment: <the one thing the opener should lean on>
   deliverable, the buyer, the problem, the mechanism, the proof, the price, the boundary,
   and the angle.
 
-Seven of these labels are the ones the per contact prompt already expects, in
-[outreach-write/references/per-contact-prompt.md](../outreach-write/references/per-contact-prompt.md)
-section 4. `Who it is for` is the line this skill adds, because the offer defines the buyer
-and the model reads it as context. If the ICP has two or three segments, produce one block
-per segment and change only the last line.
+This block is the sender block of the writing prompts, pasted as it is into the header of
+every batch: [outreach-write/references/first-message-prompt.md](../outreach-write/references/first-message-prompt.md)
+section 1. It is the only source of what any message says about the sender, so every
+sentence in it ends up, one way or another, in every message: a promise the product does
+not keep, or a figure nobody can source, is a mistake sent to the whole list. That is why
+the user reads it and says yes before anyone writes. If the ICP has two or three
+segments, produce one block per segment and change only the last line.
 
 ### 11. Hand off
 
-**This runs before [outreach-write](../outreach-write/SKILL.md).** Its block is what fills
-`{{COMPANY_INFO}}` in the per contact prompt (Mode A), and it is the source of the value
+**This runs before [outreach-write](../outreach-write/SKILL.md).** Its block is the sender
+block of the writing prompts (Mode A), and it is the source of the value
 proposition and the proof in the A/B variants (Mode B). The levers in section 6 are also
 what makes two variants genuinely different rather than two wordings of the same claim:
 variant A on the number, variant B on the contrarian angle is a real test, and two
@@ -471,7 +473,7 @@ confiance, solutions, leader.
 
 ## 10. COMPANY_INFO block
 
-Paste this between the `<company_info>` tags of the per contact writing prompt. 138 words.
+The sender block of the writing prompts, pasted as it is. 138 words.
 
 ```text
 What we sell: SEO for Shopify stores, on the category pages that carry the revenue.

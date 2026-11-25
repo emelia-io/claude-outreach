@@ -121,15 +121,19 @@ one short that carries the ask and ends in a question mark. Not five short parag
 adding up to the same count, and not one block of 300 characters. Check the shape, not
 only the sum.
 
-Step 1 sits at the reference. The follow-ups are shorter, because they have less to
-establish and more to prove:
+The reference is the floor of step 1, not its ceiling. A first message that carries an
+observation, an offer that answers it and a 15 minute question, the way
+[outreach-write](../outreach-write/SKILL.md) writes it, needs a little more, up to 480
+characters: about 11 rendered lines, 15 with the blank lines, the greeting and the
+signature, still inside one phone screen. The follow ups are shorter, because they have
+less to establish and one thing each to add:
 
 | Step | Body characters | Words | Rendered lines | Hard cap |
 |---|---|---|---|---|
-| 1 | 220 to 300 | 36 to 48 | 5 to 7 | 380 characters |
+| 1 | 260 to 480 | 42 to 78 | 6 to 11 | 504 characters |
 | 2 | 90 to 220 | 15 to 36 | 3 to 5 | 280 characters |
-| 3 | 150 to 300 | 25 to 48 | 4 to 7 | 380 characters |
-| 4, the break up | 80 to 200 | 13 to 33 | 2 to 5 | 260 characters |
+| 3 | 180 to 380 | 29 to 62 | 4 to 9 | 400 characters |
+| 4, the way out | 80 to 200 | 13 to 33 | 2 to 5 | 260 characters |
 
 Over the hard cap is blocking. Between target and cap is a fix. Under the floor, check
 the email still says something: 40 characters is not discipline, it is an empty email.
@@ -188,10 +192,12 @@ words; about their world and not your product; commits them to nothing.
 
 Ranked from least to most friction, so you can name where the email sits:
 
-1. "Is this owned by someone at {{companyName}} today?"
+1. "Is this owned by someone on your side today?"
 2. "Worth a look?"
 3. "Want the two minute version?"
-4. "Open to 15 minutes next week?" (step 3 at the earliest)
+4. "Could we talk about it for 15 minutes?" (the first message, and follow up 3)
+
+The message never names the recipient's company: "your side", "your team", "your firm".
 
 Blocking: two question marks in one email; an open question of the "how do you currently
 handle X" shape, which asks a stranger to write a paragraph about their own processes; a
@@ -402,23 +408,22 @@ they do the fifth thing, which is archive it.
 
 Subject: `forecast vs the CRM`
 
-> Hi {{firstName}},
+> {{greeting}}
 >
-> Your Q3 board deck says {{companyName}} closed 82% of forecast.
+> Most revenue teams find the gap between forecast and closed deals in the CRM three
+> weeks after the quarter closes, when the slipped deals are already gone.
 >
-> Most revenue teams find that gap in the CRM three weeks after the quarter closes, when
-> the slipped deals are already gone.
+> We read the deals that slip while the quarter is still open, and flag them to the
+> owner of each one.
 >
-> Is that number owned by someone at {{companyName}} today?
+> Could we talk about it for 15 minutes?
 >
 > {{signature}}
 
-234 characters, 41 words, 3 paragraphs, about 9 rendered lines. One ask, answerable with a
-name or a "not really". Zero links, zero images, zero attachments, no markup beyond
-paragraphs. Verdict SHIP.
-
-The 82% is the user's own number, given on 2026-09-08. Replace it or drop the line: do not
-ship a figure nobody can source.
+297 characters, 56 words, 3 paragraphs, about 9 rendered lines: an observation that lets
+the reader guess what is sold, the offer answering it, one question. Zero links, zero
+images, zero attachments, no markup beyond paragraphs, and the company never named.
+Verdict SHIP.
 
 ## Step 2, subject empty (same thread)
 

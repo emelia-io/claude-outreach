@@ -519,10 +519,10 @@ The InMail of the stock template sat where `end4` is. Keep it instead of the
 }
 ```
 
-The LinkedIn steps in both multichannel trees carry the copy written by the LinkedIn
-prompt, not the email copy translated. A LinkedIn message is unsigned, has no subject and
-ends on a question:
-[outreach-write](../outreach-write/SKILL.md) section 1, under "Mode A on LinkedIn".
+The LinkedIn steps in both multichannel trees carry the copy written with the LinkedIn
+block of the prompts, not the email copy translated. A LinkedIn message is unsigned, has
+no subject and ends on a question: [outreach-write](../outreach-write/SKILL.md) section
+1, under "LinkedIn".
 
 ### 2. The steps that exist
 
@@ -749,9 +749,12 @@ Branches worth building, in order of usefulness:
 a blank line, in this order. [outreach-write](../outreach-write/SKILL.md) section 10 has
 the detail and the reasoning, this is the part the flow has to get right.
 
-1. **The copy.** Either the written text (Mode B) or the custom variable that holds the
-   message written for that contact (Mode A, usually `{{message}}`, and nothing else
-   around it).
+1. **The copy.** On a step written per contact, the custom variable that holds that
+   contact's message, alone in its paragraph: `{{message}}` on step 1, `{{message_2}}`,
+   `{{message_3}}`, `{{message_4}}` on the follow ups the user chose to personalise. On a
+   shared step, and in Mode B, the written text, opening on `{{greeting}}`. Which step is
+   which is in the header of `outreach/sequence.md`, `Personalised:` and `Shared:`, and
+   [outreach-write](../outreach-write/SKILL.md) section 1 has the choice.
 2. **`{{signature}}`**, on its own line. Lowercase only: `{{Signature}}` silently renders
    nothing. It pulls the signature of the identity that sends, so the same step signs
    correctly from every mailbox you attach.
@@ -907,10 +910,10 @@ Write both versions there, and bring them here as `versions[]`.
 you nothing you can reuse. Test in this order, because this is the order of effect
 size: the angle, then the ask, then the proof, then the subject, then the send time.
 
-**In Mode A there is no A/B test on the body.** Every contact gets a different message,
-so there is nothing to hold constant and nothing to attribute. You can still test the
-subject line, the delays or the channel mix. Say that rather than declaring a test that
-cannot be read.
+**There is no A/B test on a step written per contact.** Every contact gets a different
+message, so there is nothing to hold constant and nothing to attribute. A shared follow
+up can carry two or three versions by email, and you can still test the delays or the
+channel mix. Say that rather than declaring a test that cannot be read.
 
 **Sample size, so the result means something.** These are the contacts needed per
 version to detect a difference at the usual 95% confidence and 80% power. They come

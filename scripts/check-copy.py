@@ -106,6 +106,7 @@ def _length_table():
 LENGTH, LENGTH_DEFAULT = _length_table()
 
 strip = lambda t: re.sub(r"\{[^}]*\}", " ", re.sub(r"<[^>]*>", " ", t))
+strip_tags = lambda t: re.sub(r"<[^>]*>", " ", t).strip()
 words = lambda t: re.findall(r"[A-Za-zÀ-ÿ']+", strip(t))
 stems = lambda t: {w.lower() for w in words(t) if len(w) > 3}
 prev = None
@@ -151,6 +152,13 @@ for s in steps:
                            f"{CONTRACT_TO_EMELIA[v]}, so write {{{{{CONTRACT_TO_EMELIA[v]}}}}}")
         elif v not in cols and v not in ROOT_VARS and v.lower() not in CASE_FREE:
             say("FAIL", n, f"variable {v} is not a column of leads.csv nor an Emelia field")
+    used_here = set(re.findall(r"\{\{\s*([A-Za-z0-9_]+)\s*\}\}", body + " " + sub))
+    if used_here & {"companyName", "companyNameClean", "company_name"}:
+        say("WARN", n, "the recipient's company is named: no message of this repository names "
+                       "it, write 'your firm', 'your company'")
+    if re.search(r"^\W*\w+\s+\{\{\s*firstName\s*\}\}\s*,", strip_tags(body)):
+        say("WARN", n, "the greeting is typed with {{firstName}}: a contact with no first name "
+                       "gets 'Hi ,'. Open on {{greeting}}")
     for bad in sorted(set(FILTER_IN_BRACES.findall(body + " " + sub))):
         say("FAIL", n, f"{bad} puts a filter inside double braces, which does not work. "
                        "Write {{name}}, or a Liquid default on a custom variable: "

@@ -142,8 +142,9 @@ curl -s -X POST "https://api.emelia.io/lists/list/<listId>/contacts/batch?update
   `twitterCompanyUrl`, `notes`, `tags`. Accepted on import does not mean usable in a
   message: section 5 lists the ones a variable resolves.
 - **Declare your custom variables before the first batch**, so step 2 catches them before
-  step 4 can. In Mode A that means every carrier the steps will name: `subject_line`,
-  `message`, `subject_line_2`, `message_2` and so on, plus `li_note`, `li_message`,
+  step 4 can: an undeclared key is placed by guessing from its value. In Mode A that means
+  `greeting` and every carrier the steps will name: `subject_line`, `message`,
+  `message_2`, `subject_line_3`, `message_3`, `message_4`, plus `li_message`,
   `li_message_2`... on LinkedIn. With MCP it is `create_custom_variable` with
   `{ technicalName, schema: "lead", displayName }`. Over REST, `POST /lists/custom-variable` with
   `{"technicalName": "company_siren", "schema": "lead", "displayName": "SIREN"}`, once per
@@ -305,7 +306,9 @@ position in the sequence hang off those ids, and new ids restart people mid sequ
 step you add goes in without an `_id`, or with one generated as above.
 
 And a campaign that is `RUNNING` refuses every one of these calls with
-`You must pause your campaign before updating it`. Pause, patch, start again.
+`You must pause your campaign before updating it`: the steps, the settings, the
+identities, the recipients and even the name. Pause, patch, start again, and keep the
+`_id` of every step you did not change.
 
 **What goes in an email step.** It depends on the mode in the header of
 `outreach/sequence.md`. In Mode A the subject and the body are the carrier variables, and
@@ -316,11 +319,39 @@ subject: {{subject_line}}
 body:    <p>{{message}}</p><p></p><p>{{signature}}</p>
 ```
 
-Step 2 carries `{{message_2}}` with an empty subject to stay in the thread, step 3
-`{{subject_line_3}}` and `{{message_3}}`, step 4 `{{message_4}}`: the same names as the
-columns of `outreach/leads.csv`, letter for letter. In Mode B the body is the written
-text of `sequence.md`, turned into `<p>` paragraphs, with its small variables
-(`{{firstName}}`, `{{icebreaker}}`) where the copy puts them, then `{{signature}}`.
+A follow up written per contact carries its own variable the same way: `{{message_2}}`
+with an empty subject to stay in the thread, `{{subject_line_3}}` and `{{message_3}}` for
+the new thread of step 3, `{{message_4}}`: the same names as the columns of
+`outreach/leads.csv`, letter for letter. A shared follow up, and every step of Mode B,
+carries the written text of `sequence.md` turned into `<p>` paragraphs, opening on
+`<p>{{greeting}}</p>`, with its small variables where the copy puts them, then
+`{{signature}}`. Never `Hi {{firstName}},` typed in a step: on a contact with no first
+name it sends "Hi ,", and `{{greeting}}` is there for that.
+
+**The pitfalls of a value sent through a variable**, each checked against the sending
+engine:
+
+- **The variable alone in its paragraph.** The engine turns `\n\n` inside a value into
+  `</p><p></p><p>` and `\n` into `</p><p>`, so `<p>{{message}}</p>` gives clean
+  paragraphs, and a variable glued to other text in the same `<p>` breaks the paragraph
+  around it.
+- **Escape `&`, `<` and `>` in a body value, never in a subject.** The value is pasted into
+  the HTML as it is, so a raw `<` can swallow the rest of the email; the subject is plain
+  text, so `R&amp;D` there would show as typed. And a subject stays on one line: a line
+  break in a subject value comes out as `</p><p>` in the subject.
+- **No brace in any value.** Liquid and spintax run after the variables are substituted,
+  on the body and on the subject alike, so a `{` or a `}` in a value is read as a tag or
+  a spin and part of the sentence disappears. `scripts/first-messages.py merge` removes
+  them, and the pipe too.
+- **The signature stays in the step, never in a value.** The engine replaces
+  `{{signature}}` in the step before it substitutes the variables, and unwraps it when it
+  stands alone as `<p>{{signature}}</p>`; a `{{signature}}` inside a value is substituted
+  later, as a variable no contact carries, and renders empty.
+- **A step in the same thread has an empty subject.** Emelia reuses the subject of the
+  version it last sent to that contact and puts `Re: ` in front.
+- **How long a value may be is not confirmed.** Nobody has published the largest value a
+  custom variable carries, so this repository caps a message at 2,000 characters and a
+  subject at 150, and the merge refuses anything longer.
 
 From step 2 the opt out link is appended, as a real anchor:
 
@@ -393,6 +424,10 @@ Four rules Emelia enforces when you press Launch, so check them now rather than 
 3. **The first email of a branch needs a subject.** The following emails inherit the
    thread and can leave it empty, which is what makes a follow up land in the same thread.
 4. A LinkedIn message step with an audio note needs the audio actually uploaded.
+
+And one rule nothing enforces: **every version of a LinkedIn `MESSAGE` step is sent**, one
+after the other, as separate messages. Several versions there are not an A/B test: one
+version per LinkedIn step, always.
 
 Variables, exactly as the engine resolves them:
 
@@ -514,7 +549,10 @@ MCP server, then:
    step. Show the addresses you picked, get a yes, then
    `update_campaign_identities { campaignId, identities: [{ name, email, linkedin }] }`,
    where `email` and `linkedin` are ids, not addresses.
-8. `update_campaign_recipients { campaignId, lists: [listId] }`.
+8. `update_campaign_recipients { campaignId, lists: [listId] }`. Attaching a list takes in
+   the contacts it already holds, so the list can be filled before or after it is
+   attached, as long as the campaign is not running and every contact carries its
+   messages.
 9. The pre-flight of section 7, with the MCP tools it lists, on every contact.
 10. `send_campaign_test_email { campaignId, stepId, versionId, email }`, once per email
     step and per version.
@@ -603,6 +641,7 @@ Then the half a script cannot do:
 
 | Check | How | Pass condition |
 |---|---|---|
+| Offer approved | `outreach/offer.md` and the header of `outreach/sequence.md` | the user said yes to the sender block and the why of each target before any message was written: a false sentence in them is in every message |
 | Deliverability | `## Verdict` in `outreach/deliverability.md` | READY, or READY WITH LIMITS and the cadence set to that cap |
 | List verified | the verification column in `outreach/leads.csv` | every row verified, invalid rows removed |
 | Unsubscribe | grep the copy | `{{unsubscribe_link}}` present from step 2 onwards, as a link and not a bare variable |
@@ -676,15 +715,15 @@ read.
   },
   "steps": [
     { "stepType": "EMAIL", "delay": { "amount": 0, "unit": "DAYS" },
-      "versions": [{ "subject": "{{companyName}} + Postgres 16", "message": "<p>Hi {{firstName}}, ...</p><p></p><p>{{signature}}</p>" }] },
+      "versions": [{ "subject": "{{subject_line}}", "message": "<p>{{message}}</p><p></p><p>{{signature}}</p>" }] },
     { "stepType": "EMAIL", "delay": { "amount": 3, "unit": "DAYS" },
-      "versions": [{ "subject": "", "message": "<p>Following up, {{firstName}}. ...</p><p></p><p>{{signature}}</p><p></p><p><a href=\"{{unsubscribe_link}}\">Unsubscribe</a></p>" }] },
+      "versions": [{ "subject": "", "message": "<p>{{greeting}}</p><p></p><p>...</p><p></p><p>{{signature}}</p><p></p><p><a href=\"{{unsubscribe_link}}\">Unsubscribe</a></p>" }] },
     { "stepType": "VISIT", "delay": { "amount": 1, "unit": "DAYS" }, "versions": [] }
   ],
   "preflight": {
     "deliverability": "READY WITH LIMITS",
     "listVerified": true,
-    "blankVariables": { "icebreaker": 0, "companyName": 0 },
+    "blankVariables": { "greeting": 0, "subject_line": 0, "message": 0 },
     "testEmailSentTo": "paul@get-acme.com",
     "confirmedBy": "user, 2026-03-12T18:41:00Z"
   }

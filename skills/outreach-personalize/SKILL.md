@@ -1,6 +1,6 @@
 ---
 name: outreach-personalize
-description: "Personalizes a sequence at scale without inventing anything. Handles both shapes: a personalized opening line inside written copy, and a whole message written per person and pushed into a custom variable. Decides what can genuinely vary row by row and what must stay a segment, ranks the sources (role and company, recent LinkedIn content, company news, technology used), writes AI variables with fallbacks that cannot break when the data is missing, refuses fabricated personalization, states what the generation costs and where it runs before starting it, and forces a quality review on a 20 row sample before generating the other thousand. Also covers spintax and when it actually helps. Produces the personalization columns in outreach/leads.csv with their source and date. Triggers on: personalize, personalization, personalisation, icebreaker, ice breaker, first line, AI variable, custom variable, merge tag, merge field, fallback, spintax, variables, mass personalization, personalization at scale, accroche, message per person, personalized message, bulk generation, Anthropic API key, Claude Sonnet."
+description: "Personalizes a sequence at scale without inventing anything. Handles both shapes: a personalized line inside written copy, and the gate on the messages outreach-write writes per contact and pushes into custom variables (the sample read as whole messages, the count of every column). Decides what can genuinely vary row by row and what must stay a segment, ranks the sources (role and company, recent LinkedIn content, company news, technology used), writes AI variables with fallbacks that cannot break when the data is missing, refuses fabricated personalization, states what the generation costs and where it runs before starting it, and forces a quality review on a 20 row sample before generating the other thousand. Also covers spintax and when it actually helps. Produces the personalization columns in outreach/leads.csv with their source and date. Triggers on: personalize, personalization, personalisation, icebreaker, ice breaker, first line, AI variable, custom variable, merge tag, merge field, fallback, spintax, variables, mass personalization, personalization at scale, accroche, message per person, personalized message, bulk generation, Anthropic API key, Claude Sonnet."
 license: MIT
 metadata:
   author: Emelia
@@ -49,37 +49,39 @@ sentence only goes to the rows that can carry it.
 [outreach-write](../outreach-write/SKILL.md) has already chosen between two shapes, and
 the header of `outreach/sequence.md` says which. They are not the same job.
 
-**Mode B, a personalized line inside written copy.** The body is written once, and one or
-two variables carry what changes: `icebreaker`, `companyNameClean`. The written sentences
-around the variable carry the email, so a blank cell degrades into a slightly duller
-email. This is the default, and most of this skill is about it.
-
-**Mode A, the whole message per person.** One message is written for each contact and
-stored in a single column, usually `message`. The Emelia step body is then that variable,
-`{{signature}}`, and from step 2 the opt out link. Nothing else. Three consequences that
-change how you work:
+**Mode A, the messages written per contact, the recommended way.** The first message, and
+the follow ups the user chose, are written for each contact by
+[outreach-write](../outreach-write/SKILL.md), with the prompts of
+[first-message-prompt.md](../outreach-write/references/first-message-prompt.md) and
+[follow-up-prompt.md](../outreach-write/references/follow-up-prompt.md), and merged into
+their own columns: `message`, `message_2`, `message_3`... The Emelia step body is then
+that variable alone in its paragraph, `{{signature}}`, and from step 2 the opt out link.
+Nothing else. This skill is then the gate: the sample of section 7, read as whole
+messages, and the count of every column. Three consequences that change how you work:
 
 1. **Nothing can fall back.** A blank `icebreaker` costs a sentence. A blank `message`
-   sends an empty email. Coverage has to be 100%, and any row you cannot write for gets
-   removed from the list, not left blank.
-2. **The checker cannot see the copy.** `scripts/check-copy.py` reads `sequence.md`, which
-   in Mode A holds a carrier variable and no sentences. It says so and skips those rows.
-   The copy checks happen here, on the rendered sample of section 7.
+   sends an empty email. Coverage has to be 100% on every column a step uses, and any
+   row you cannot write for gets removed from the list, not left blank.
+2. **`check-copy.py` cannot see the copy.** It reads `sequence.md`, which in Mode A holds
+   a carrier variable and no sentences. It says so and skips those rows. The messages are
+   checked by `scripts/first-messages.py`, batch by batch, and read here, on the sample of
+   section 7.
 3. **The message carries no plumbing.** Never generate a signature, a sign off name or
    an opt out link inside the message value: those are separate blocks in the step, and a
    second signature inside the variable ships two of them. A link to a page is allowed,
    but it is the one link that step is allowed to have.
 
-The prompt that writes those messages is in
-[outreach-write](../outreach-write/SKILL.md), section 1, under "Mode A: the per contact
-writing prompt", with the prompt itself in
-[per-contact-prompt.md](../outreach-write/references/per-contact-prompt.md). Run it
-unchanged, and only once the four questions it needs are answered: the language, the
-form of address in languages that separate a formal and an informal you, the gender of
-the person signing because the grammar agrees and it is never guessed from a first name,
-and the rules for that language. If the user has a prompt of their own they would rather
-use, run theirs and store it with the run, but ask the same four questions either way:
-they are about the reader, not about the prompt.
+**Mode B, a personalized line inside written copy.** The body is written once, and one
+small variable carries what changes, an `icebreaker` sentence. The written sentences
+around it carry the email, so a blank cell degrades into a slightly duller email. It is
+the option for cards too thin to write a whole message from, and most of the sections
+below are about it.
+
+The questions a Mode A run needs (what to personalise, the language, the form of address,
+the gender of the person signing, the rules of the language) are asked once, by
+[outreach-write](../outreach-write/SKILL.md) section 1. If the user has a prompt of their
+own they would rather use, run theirs and store it with the run, but ask the same
+questions and keep the same checks: they are about the reader, not about the prompt.
 
 ### 1b. Is there enough in the file to personalize at all
 
@@ -255,10 +257,15 @@ that follow, and they matter most in Mode A:
 resolves, and `{{Signature}}` renders as nothing. The opt out variable is the opposite,
 `{{unsubscribe_link}}` and `{{UNSUBSCRIBE_LINK}}` both work.
 
-### 5. Clean the company name before you use it in a sentence
+### 5. The company name stays out of the message
 
-Legal names look wrong inside a sentence. Write a `companyNameClean` column and use
-that in the copy:
+No message of this repository names the contact's company, in either mode: "your firm",
+"your agency", "your company". Legal and scraped names are often badly written, a name
+in a sentence reads as a mail merge, and in Mode A the check blocks a message that names
+it. Do not put `{{companyName}}` in a step either.
+
+A cleaned name is still useful outside the message (a CRM, a report, the name of a
+segment). When you need one, write a `companyNameClean` column with these rules:
 
 - Strip legal suffixes: SAS, SASU, SARL, EURL, SA, SCI, GmbH, BV, Ltd, LLC, Inc, Corp,
   and the trailing punctuation around them.
@@ -312,15 +319,17 @@ variables and fallbacks applied, and read all twenty. Score each one:
 - **weak**: true but generic, it adds nothing,
 - **wrong**: one factual error, of any size.
 
-In Mode A the sample is the only place the copy is ever checked, so read the whole
-message, not just the first line, and score it against the rules in
-[outreach-write](../outreach-write/SKILL.md): 220 to 300 characters of body on step 1 and
-less on the follow-ups, one ask, one question mark, zero or one link, no spam word stack,
-no sign off and no variable inside the value. Do not judge the length by eye: write the
-twenty rendered emails into `outreach/sample-rendered.md` in the same `## Step N` and
-fenced body shape as `sequence.md`, and run
-`python3 scripts/audit-emails.py outreach/sample-rendered.md` over it. A message that
-breaks those is a "wrong" row, the same as a factual error.
+In Mode A the sample is the first 20 contacts written, the first batches, read as whole
+messages once `scripts/first-messages.py check` has passed them: every per contact step,
+not just the first line. The script has already measured the length, the question, the
+forbidden phrases and the link with the offer; what you read for is what it cannot see:
+is the observation true for someone in that trade, does it let you guess what is sold,
+does the offer answer it. A message that fails that is a "wrong" row, the same as a
+factual error, and the fix goes into the why of the target or the prompt, not the row.
+In Mode B, write the twenty rendered emails into `outreach/sample-rendered.md` in the
+same `## Step N` and fenced body shape as `sequence.md`, and run
+`python3 scripts/audit-emails.py outreach/sample-rendered.md` over it rather than judging
+the length by eye.
 
 The gates:
 
@@ -405,7 +414,7 @@ Rules:
 
 `outreach/leads.csv`, with the personalization columns added and the original columns
 untouched. Source and date sit next to the sentence so any claim can be checked. In
-Mode A the same file carries a `message` column, and `message_source` and `message_date`
+Mode A the same file carries a `message` column, and `message_sources` and `message_date`
 next to it, on exactly the same terms. An excerpt, with the contract columns of
 [outreach-leads](../outreach-leads/SKILL.md) under their contract names and most of them
 left out for width; the columns this skill adds come after them:
@@ -483,9 +492,10 @@ real contact before resending.
 **The LinkedIn source is a repost.** The person shared somebody else's post. Treat the
 author field as mandatory, and drop the row when the author is not the contact.
 
-**Accented and all caps names.** `MARTIN & FILS SAS` inside a sentence looks like a
-mistake. That is what `companyNameClean` is for, and why five sample rows are chosen
-for their names.
+**The company name appears in a message.** `MARTIN & FILS SAS` inside a sentence looks
+like a mistake, and no message names the company anyway: section 5. In Mode A the check
+blocks it; in Mode B, remove `{{companyName}}` from the copy. Five sample rows are chosen
+for awkward names precisely to catch it.
 
 **Two sign offs in the received email.** The generated message ends with a name and the
 step also renders `{{signature}}`. Strip the sign off from the values, do not remove the
@@ -501,10 +511,10 @@ written a second time.
 
 ## Limits
 
-This skill does not hold the per contact writing prompt: it fills variables with
-whatever prompt it is given, and the house prompt lives with
+This skill does not hold the writing prompts: they live with
 [outreach-write](../outreach-write/SKILL.md), in
-[references/per-contact-prompt.md](../outreach-write/references/per-contact-prompt.md). It does not fetch data on its
+[first-message-prompt.md](../outreach-write/references/first-message-prompt.md) and
+[follow-up-prompt.md](../outreach-write/references/follow-up-prompt.md). It does not fetch data on its
 own beyond what the list already holds and what the sourcing step collected: it will not
 browse for a prospect. It cannot verify that a
 source URL still says what it said when it was captured, which is why every row carries

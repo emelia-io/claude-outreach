@@ -162,8 +162,8 @@ Then, once you trust it:
 | `/outreach find-phone <list>` | Find direct mobile numbers |
 | `/outreach verify <list>` | Verify the addresses you brought yourself, not the ones Emelia found |
 | `/outreach enrich <list>` | Find what is missing, verify only what needs it, decide row by row |
-| `/outreach write <angle>` | Subjects, openers, follow-ups, break-up |
-| `/outreach personalize <list>` | Icebreakers and AI variables per contact |
+| `/outreach write <angle>` | The first message for every contact, follow ups shared or personalised |
+| `/outreach personalize <list>` | The sample read, every column counted, icebreakers for a shared text |
 | `/outreach sequence <spec>` | Steps, delays, conditions, A/B tests |
 | `/outreach deliverability` | SPF, DKIM, DMARC, warmup, volume, ramp plan |
 | `/outreach campaign <spec>` | Create and launch in Emelia |

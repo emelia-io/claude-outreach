@@ -28,12 +28,14 @@ import sys
 CHARS_PER_LINE = 45
 
 # Reference email, measured from the Emelia editor: 74 chars, then 148, then 74.
-# Body 300 chars, 47 words, three paragraphs, the last one a question.
-# step number -> (min body chars, target max body chars, hard cap)
+# Body 300 chars, 47 words, three paragraphs, the last one a question. A first message
+# that carries an observation, the offer and a 15 minute question sits from that floor to
+# 480. step number -> (min body chars, target max body chars, hard cap)
+# scripts/first-messages.py reads this table too.
 LENGTH = {
-    1: (220, 300, 380),
+    1: (260, 480, 504),
     2: (90, 220, 280),
-    3: (150, 300, 380),
+    3: (180, 380, 400),
     4: (80, 200, 260),
 }
 LENGTH_DEFAULT = (90, 260, 340)

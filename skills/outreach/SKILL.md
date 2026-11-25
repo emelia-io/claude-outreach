@@ -33,8 +33,8 @@ edit and re-run. Nothing is a black box.
 | `/outreach find-phone <list>` | Find direct mobile numbers |
 | `/outreach verify <list>` | Verify deliverability of every address before sending |
 | `/outreach enrich <list>` | The full waterfall: find, verify, decide, fill custom fields |
-| `/outreach write <angle>` | Write the sequence copy: subjects, openers, follow-ups, break-up |
-| `/outreach personalize <list>` | Per-contact icebreakers and AI variables at scale |
+| `/outreach write <angle>` | Write the sequence: the first message for every contact, the follow ups shared or personalised, checked before they are kept |
+| `/outreach personalize <list>` | The sample read before the rest is written, the count of every column, and icebreakers for a shared text |
 | `/outreach sequence <spec>` | Design the multichannel flow: steps, delays, conditions, A/B tests |
 | `/outreach deliverability` | SPF, DKIM, DMARC, warmup, sending limits, ramp plan |
 | `/outreach campaign <spec>` | Create and launch the campaign in Emelia |
@@ -57,6 +57,7 @@ outreach/
   leads.csv           # the list, one row per contact, source column kept
   enrichment.json     # what was found, what was not, what it cost
   sequence.md         # the copy, step by step, with variables
+  copy/               # the cards, the batches and their checks, when messages are written per contact
   campaign.json       # what was created in Emelia, with ids
   audit.md            # what is wrong with the emails, and the one thing to fix
 ```
@@ -307,8 +308,8 @@ round it up and do not quietly drop the rest.
   2  outreach-leads           -> leads.csv         count first, extract second
   3  outreach-filter          -> leads.csv         dedupe, exclude, segment
   4  outreach-enrich          -> enrichment.json   find, verify, cost stated up front
-  5  outreach-write           -> sequence.md       copy, reviewed by you
-  6  outreach-personalize     -> leads.csv         icebreakers per contact
+  5  outreach-write           -> leads.csv         messages per contact, and sequence.md
+  6  outreach-personalize     -> leads.csv         sample read, every column counted
   7  outreach-sequence        -> campaign.json     steps, delays, conditions, A/B
   8  outreach-deliverability  -> gate              blocks the launch if unsafe
   9  outreach-campaign        -> live in Emelia    you confirm the launch

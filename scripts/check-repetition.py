@@ -7,13 +7,15 @@ only ever reads their own email, so this is not a delivery problem: it is a sign
 the personalisation stopped at the opening line and that the ask, which is the part
 that earns the reply, was written from a template.
 
-    python3 scripts/check-repetition.py outreach/copy/*.json
+    python3 scripts/check-repetition.py outreach/leads.csv
 
-Reads the same JSON the writing agents produce: a list of objects carrying `lead_id`
-and the columns of outreach/leads.csv, `subject_line` and `message` for step 1, then
-`subject_line_2` and `message_2` and so on. Exits 1 when something crosses the threshold.
+Reads outreach/leads.csv once the messages are merged, or a JSON list of objects
+carrying `lead_id` and the same columns, `subject_line` and `message` for step 1, then
+`message_2` to `message_4`, `subject_line_3` for the new thread of step 3. Exits 1 when
+something crosses the threshold.
 """
 import argparse
+import csv
 import glob
 import json
 import re
@@ -30,7 +32,10 @@ def load(paths):
     for pattern in paths:
         for path in sorted(glob.glob(pattern)) or [pattern]:
             try:
-                data = json.load(open(path, encoding="utf-8"))
+                if path.endswith(".csv"):
+                    data = list(csv.DictReader(open(path, encoding="utf-8", errors="replace")))
+                else:
+                    data = json.load(open(path, encoding="utf-8"))
             except (OSError, json.JSONDecodeError) as e:
                 print(f"cannot read {path}: {e}")
                 continue

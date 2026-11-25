@@ -132,6 +132,11 @@ Field rules:
   This is the dedup and exclusion key, so it matters more than `company_website`.
 - `company_headcount`: an integer number of employees. When the source only gives a
   band, write the lower bound and put the band in `x_headcount_band`.
+- `x_headline`, `x_role_description`, `x_linkedin_summary`, `x_skills`, `x_experiences`,
+  `x_company_description`: not among the 26 either, and worth filling whenever the source
+  gives them (a LinkedIn extraction, a rich export, a CRM). They are what the first
+  message is written from: the card of
+  [outreach-write](../outreach-write/references/first-message-prompt.md), section 4.
 - `x_trade_name`: not one of the 26, but fill it whenever the source gives a trading
   name, an `enseigne` or a Google listing name that differs from `company_name`. The
   email finder uses it as its third attempt and recovers rows the legal name misses.

@@ -146,7 +146,7 @@ export BASILE_API_KEY="..."      # optional, French B2B data
 ```
 
 Base `https://api.emelia.io`, header `Authorization: <key>`. Never write a key into a
-file. The full surface, which is all there is:
+file. The routes the skills use:
 
 | Method and path | What it does |
 |---|---|
@@ -169,6 +169,11 @@ file. The full surface, which is all there is:
 | `GET /linkedin/campaigns` | Legacy. LinkedIn campaigns of the old platform |
 | `POST` and `DELETE /linkedin/campaign/contacts` | Legacy. Contacts in an old platform LinkedIn campaign, profile URL as `linkedinUrlProfile` |
 | `POST /linkedin/lists/contacts`, `PATCH /linkedin/contacts` | Legacy. Old platform LinkedIn lists (profile URL as `url`) and custom fields |
+
+The emails themselves have a REST API of their own, the Emelia Inbox API, at
+`https://api.emelia.io/inbox/api/v1`, with the same key and its own quotas (60 requests
+a minute and 10,000 a month per account): mailboxes, emails with search and threads,
+drafts, sending, labels and rules. `outreach-replies` says how it uses it.
 
 **Every campaign you create is an advanced campaign**, `POST /advanced/campaigns`, and
 that includes a LinkedIn only campaign and a plain sequence of four emails. The channel
@@ -224,9 +229,10 @@ The tools the skills reach for most: `get_campaign_stats`, `get_warmup_status` a
 `get_list`, `rename_list`, `delete_list`, `get_list_contacts`, `update_contact`,
 `delete_contact`), `find_contact`, which searches a contact across every list of the
 account, `create_linkedin_scraper`, which starts a LinkedIn extraction from a search
-URL, and, once the Inbox is open in Emelia, the inbox tools (`list_emails`,
-`search_emails`, `get_thread`, `draft_reply`). The full list, with every parameter, is
-at [docs.emelia.io/docs/mcp/tools](https://docs.emelia.io/docs/mcp/tools). Before
+URL, and, once the Inbox is open in Emelia, the inbox tools (`list_mailboxes`,
+`list_emails`, `search_emails`, `get_thread`, `draft_reply`, `send_draft`). The full
+list, with every parameter, is at
+[docs.emelia.io/docs/mcp/tools](https://docs.emelia.io/docs/mcp/tools). Before
 writing or changing a sequence through it, read `get_campaign_sequence_guide`.
 
 Never assume it is there. Check as described above, and fall back to REST or to

@@ -1,6 +1,6 @@
 ---
 name: outreach-replies
-description: "Triage the replies your Emelia campaigns received, and only those: the API exposes a campaign activity feed and a reply endpoint, it has no endpoint that lists a mailbox, so this is campaign reply handling and not an inbox client. Paginates the activity feed, sorts every reply by intent (interested, meeting request, not now with the follow up date extracted, out of office with the stand in contact extracted, wrong person with the referral, unsubscribe, negative), drafts an answer in the sender's own voice, blacklists every opt out immediately, and lists the manual tasks waiting on a human. Writes outreach/replies.md with one block per contact and the exact call to send each answer. It prepares, you send. Triggers on: replies, reply handling, campaign replies, answer, respond, triage, inbox, out of office, unsubscribe, opt out, blacklist, not interested, meeting request, follow up date, wrong person, referral, manual task, bounce, response rate."
+description: "Triage the replies your Emelia campaigns received. Reads who replied, and to which step, in the campaign activity feed, then, once the Emelia Inbox is set up, reads each thread and prepares a reply in the same conversation through the inbox tools of the Emelia MCP server or the Emelia Inbox API. Sorts every reply by intent (interested, meeting request, not now with the follow up date extracted, out of office with the stand in contact extracted, wrong person with the referral, unsubscribe, negative), drafts an answer in the sender's own voice, blacklists every opt out immediately, and lists the manual tasks waiting on a human. Writes outreach/replies.md with one block per contact and the exact call to send each answer. It prepares, you send. Triggers on: replies, reply handling, campaign replies, answer, respond, triage, inbox, out of office, unsubscribe, opt out, blacklist, not interested, meeting request, follow up date, wrong person, referral, manual task, bounce, response rate."
 license: MIT
 metadata:
   author: Emelia
@@ -17,12 +17,17 @@ wants, writes a draft answer for each one in the voice of the person who sent th
 campaign, and handles the opt outs immediately and without asking. It writes
 everything to `outreach/replies.md` and stops there.
 
-**The perimeter is your campaigns, not your mailbox.** Emelia's API gives you the
-activity feed of a campaign, which contains the replies it received, and one endpoint
-to answer a reply. There is no endpoint that lists a mailbox. So a message that
-arrived outside a campaign, or that Emelia could not attach to a contact, does not
-exist as far as this skill is concerned. Say that to the user the first time rather
-than letting them assume their inbox is being read.
+**The perimeter is the replies to your campaigns, read from two places.** The activity
+feed of a campaign says who replied, when, and to which step: it is the work list. The
+Emelia Inbox (the **Inbox** tab of the app, fed by the mailboxes connected to Emelia)
+holds the emails themselves: the whole thread, a reply sent from another address, one
+that landed in spam. Emelia opens that inbox to code in two ways: the inbox tools of the
+MCP server (`list_mailboxes`, `list_emails`, `search_emails`, `get_thread`,
+`draft_reply`, `send_draft` and others), and the Emelia Inbox API at
+`https://api.emelia.io/inbox/api/v1`, with the same API key. This skill uses the inbox to
+read and answer what your campaigns received. It does not sort the rest of the mailbox:
+newsletters, invoices and internal mail stay out of `replies.md`. Say that to the user
+the first time.
 
 **It prepares, you send.** No message reaches a real person without an explicit yes
 from you, one message at a time. The only action taken without asking is honouring an
@@ -38,9 +43,10 @@ Use a different skill when you want the numbers rather than the messages
 that produced these replies (`outreach-write`), or when the campaign is not sending at
 all, which is a deliverability question.
 
-Do not reach for it as an email client. It cannot search a mailbox, cannot read a
-thread the campaign did not start, cannot mark a message read, and cannot see a reply
-that landed in spam. Those live in the Emelia app or in the mailbox itself.
+Do not reach for it to sort a whole mailbox. Labels, views, inbox filters and AI label
+rules have their own tools (the `inbox_settings` category of the MCP server) and their own
+routes in the Inbox API. This skill reads the inbox only to handle what your campaigns
+received.
 
 ## Inputs
 
@@ -53,6 +59,14 @@ that landed in spam. Those live in the Emelia app or in the mailbox itself.
   chatbot. Read the copy before writing a single answer.
 - **`EMELIA_API_KEY`**, or the Emelia MCP server. Without either there is nothing to read
   and nothing to send: say so rather than producing an empty triage.
+- **The Emelia Inbox**, strongly recommended. With MCP, look for a tool whose name ends in
+  `__search_emails` or `__list_mailboxes`. The inbox tools appear only once the Inbox has
+  been opened in Emelia: if they are missing, tell the user to open the **Inbox** tab of
+  the app once, wait a few minutes and reconnect the server. With the key, call
+  `GET https://api.emelia.io/inbox/api/v1/mailboxes`: it lists the mailboxes the inbox
+  reads. Without the inbox the skill still works from the activity feed, but it cannot
+  read a thread, and its answers go out as new emails rather than replies in the
+  conversation (section 7).
 - **The sender's calendar link**, if there is one. Ask once, reuse it in every draft. Do
   not invent a booking URL.
 
@@ -60,18 +74,30 @@ that landed in spam. Those live in the Emelia app or in the mailbox itself.
 
 ### 1. Know what you can actually read
 
-The whole email surface, and there is no more of it:
+The campaign side tells you who replied:
 
-| Method and path | What it gives you |
-|---|---|
-| `GET /advanced/campaigns/{id}/activities` | The activity feed of one campaign, replies included, 30 per page |
-| `GET /advanced/campaigns/{id}/export?type=replies` | The same replies as a CSV, in one call, for a large campaign |
-| `POST /emails/reply` | Send one answer |
-| `POST` and `DELETE /emails/blacklists/contact` | Blacklist an address or a domain, and undo it |
+| What | MCP tool | REST, `https://api.emelia.io` |
+|---|---|---|
+| The activity feed of one campaign, replies included | `get_campaign_activities`, first page only | `GET /advanced/campaigns/{id}/activities`, 30 per page |
+| Every reply of a campaign in one call | `export_campaign` with `type: "replies"` | `GET /advanced/campaigns/{id}/export?type=replies`, a CSV |
+| Blacklist an address or a domain, and undo it | `add_to_blacklist`, `remove_from_blacklist` with `type: "email"` | `POST` and `DELETE /emails/blacklists/contact` |
+| Answer without the inbox | none | `POST /emails/reply` |
 
-There is no `GET /emails/inbox`, no thread listing, no search across mailboxes. If a
-user asks for "everything in my inbox", the honest answer is that the API does not
-expose it, and the closest thing is the reply feed of each of their campaigns.
+The inbox side holds the emails. The MCP tools appear once the Inbox has been opened in
+Emelia; the Inbox API takes the same key and has its own quotas, 60 requests a minute and
+10,000 a month per account:
+
+| What | MCP tool | Inbox API, `https://api.emelia.io/inbox/api/v1` |
+|---|---|---|
+| The mailboxes the inbox reads | `list_mailboxes` | `GET /mailboxes` |
+| Find the reply of a contact | `search_emails` | `GET /emails/search?q=...` |
+| Browse new mail | `list_emails`, `get_unread_counts` | `GET /emails`, cursor pagination |
+| Read the whole thread | `get_thread` | `GET /emails/{emailId}/body` |
+| Prepare an answer in the conversation, nothing sent | `draft_reply` | `POST /drafts` with `inReplyTo` and `references` |
+| Send it, after a yes | `send_draft` | `POST /drafts/send` |
+
+If a user asks for "everything in my inbox", that is the inbox tools on their own, not
+this skill: this skill starts from the campaigns.
 
 ### 2. Pull the replies, page by page
 
@@ -87,8 +113,11 @@ Repeat for `LINKEDIN_REPLIED`, `UNSUBSCRIBED` and `BOUNCED`. The full event list
 `BOUNCED`, `OPENED`, `UNSUBSCRIBED`, `CLICKED`, `TASK_COMPLETED`.
 
 **The feed is paginated 30 at a time and the MCP tool does not expose the page**, so
-above 30 replies MCP alone silently gives you the first page and nothing else. Go
-through REST and loop:
+above 30 replies `get_campaign_activities` silently gives you the first page and nothing
+else. With MCP alone, take every reply at once with
+`export_campaign { "campaignId": "...", "type": "replies" }`: it returns the CSV as text,
+cut at 100,000 characters with a note giving the number of lines shown, so pass `start`
+and `end` to split a large campaign into date ranges. With the key, loop over REST:
 
 ```bash
 page=0
@@ -217,8 +246,10 @@ curl -s -X POST https://api.emelia.io/emails/blacklists/contact \
   -d '{"email":"claire.fontaine@nexora.fr"}'
 ```
 
-- The `email` field also accepts a bare domain in the form `domain.ltd`, which blacklists
-  everyone there. Use it when someone answers for their whole company, and only then. Ask
+With MCP: `add_to_blacklist { "type": "email", "value": "claire.fontaine@nexora.fr" }`.
+
+- The `email` field (`value` with MCP) also accepts a bare domain in the form
+  `domain.ltd`, which blacklists everyone there. Use it when someone answers for their whole company, and only then. Ask
   before doing it: it is account wide and it is the one blacklist action worth confirming.
 - `DELETE` on the same path with the same body removes an address, for the case where you
   blacklisted the wrong one.
@@ -242,10 +273,11 @@ Read two or three messages from `outreach/sequence.md` first, then hold to these
 - No attachment, no new pitch, no second call to action.
 - No fabricated facts. If you do not know the price, the draft says the sender will
   confirm it, it does not invent a number.
-- Sign with the sender's name. The mailbox signature is appended automatically by Emelia,
-  so do not paste the signature into the body.
-- Quote nothing. The reply endpoint appends the original thread by itself when it has a
-  message id.
+- Never paste the signature into the body: Emelia adds the signature of the mailbox. With
+  `draft_reply`, add no closing and no name either, the sender block is added for you.
+  With `POST /emails/reply`, sign with the sender's name.
+- Quote nothing. `draft_reply` quotes the original by itself, and so does
+  `POST /emails/reply` when it has a `messageId`.
 
 Write each draft into `outreach/replies.md`. That file is the deliverable, and it is
 the deliverable even when the user is in a hurry: the drafts wait there until a human
@@ -255,6 +287,45 @@ approves them one by one.
 
 Show the draft, ask, wait for a yes for that specific message. A yes on one draft is
 not a yes on the next one, and "send them all" is a request to show them all first.
+
+**With the inbox, answer in the conversation.** Find the email of the reply, read the
+thread, and leave a draft in the inbox, under her message:
+
+```
+search_emails { "query": "claire.fontaine@nexora.fr", "folder": "INBOX" }
+get_thread    { "emailId": "<id of her reply>", "bodyFormat": "clean_text" }
+draft_reply   { "emailId": "<id of her reply>", "body": { "text": "Bonjour Claire,\n\nSur un parc ..." } }
+```
+
+- Pick the email in the mailbox of `customData.repliedTo` (its `mailboxId` comes from
+  `list_mailboxes`) and dated like the activity. A contact who replied twice has two.
+- `draft_reply` sets the subject, the recipients, the threading headers and the quoted
+  original, and sends nothing. It returns the draft and a link to review it in the Emelia
+  inbox: put that link in `replies.md`.
+- On the yes, `send_draft { "draftId": "...", "idempotencyKey": "<a new random string>",
+  "confirm": true }`. `confirm: true` only after the user approved that exact email. If
+  the call times out, retry with the same key, never with a new draft. The user can also
+  send it from the inbox with the link.
+- `DRAFT_ALREADY_EXISTS` means a draft already answers that email, often an AI auto-draft.
+  Show it to the user; overwrite it (`replaceExistingDraft: true`) only if they agree.
+
+With the key and no MCP, the same through the Inbox API:
+
+```bash
+INBOX=https://api.emelia.io/inbox/api/v1
+curl -s -H "Authorization: $EMELIA_API_KEY" \
+  "$INBOX/emails/search?q=claire.fontaine@nexora.fr&folderType=INBOX"
+```
+
+Each item carries `id`, `mailboxId`, `messageId`, `references` and `subject`. Read the
+thread with `GET $INBOX/emails/{id}/body`, then `POST $INBOX/drafts` with `mailboxId`,
+`to`, `subject` (`Re: ` and hers), `inReplyTo` set to her `messageId`, `references` set to
+her `references` followed by her `messageId`, and `body` (`text`, `html` or both). The
+draft waits in the inbox. `POST $INBOX/drafts/send` takes the same body and sends at once:
+only on the yes, always with an `Idempotency-Key` header.
+
+**Without the inbox, `POST /emails/reply`.** It sends a new email from the right mailbox,
+which is still a correct answer, but usually not in the same conversation:
 
 ```bash
 curl -s -X POST https://api.emelia.io/emails/reply \
@@ -274,10 +345,9 @@ Four things that make this call fail, none of them obvious from the schema:
    mailbox to use is `customData.repliedTo` from the activity, and `list_email_providers`
    maps that address to its `_id`.
 2. `messageId` is what threads the answer: with it, Emelia sets `In-Reply-To`, adds the
-   references and appends the quoted history. It comes from the merged inbox in the app,
-   not from the activity feed, so you usually will not have it. This is the practical
-   consequence of there being no inbox endpoint: your answers are usually correct
-   emails rather than threaded replies.
+   references and appends the quoted history. It is the Message-ID of the email you
+   answer, and the activity feed does not carry it. When you can read the inbox, answer
+   through the inbox as above rather than through this route.
 3. **Without `messageId` you must supply `to` and `subject` yourself.** The call has
    nothing to inherit from. That is the shape shown above.
 4. With a `messageId` that Emelia cannot find, the call fails with
@@ -286,9 +356,10 @@ Four things that make this call fail, none of them obvious from the schema:
 `content` is HTML. Use `<br>` for line breaks, not `\n`. `cc`, `bcc` and `attachments`
 (`[{ "name": ..., "url": ... }]`) exist if you need them, and you almost never do.
 
-### 8. LinkedIn, where there is a real inbox
+### 8. LinkedIn conversations
 
-Unlike email, LinkedIn conversations do have a full inbox API. These routes were
+LinkedIn conversations have inbox routes of their own, apart from the email inbox
+above, and no MCP tool. These routes were
 verified on 9 September 2026 and are **not in the public specification**, so treat
 them exactly like the campaign build routes in the dispatcher: use them, and tell the
 user they are not contractual yet and may change without notice.
@@ -327,12 +398,12 @@ complete_manual_task { "campaignId": "...", "contactId": "...", "taskId": "...",
 
 `ko` marks it failed and lets the sequence move on. Only mark `ok` for something that
 actually happened: the sequence continues from there, and a false `ok` sends the next
-step to someone who never got the previous one. Without MCP, the same two things exist
-over REST, like the other campaign routes of the dispatcher, outside the public
-documentation: `GET /advanced/campaigns/{id}/manual-tasks` lists the tasks and
-`POST /advanced/campaigns/{id}/manual-tasks/status` sets one (checked on 29 September
-2026). This repository does not describe the body of that second call yet: prefer the
-MCP tool, or close the task in the app, rather than guessing its fields.
+step to someone who never got the previous one. Without MCP, the same two things are in
+the public reference: `GET /advanced/campaigns/{id}/manual-tasks` lists the tasks
+(optional `stepId`), and `POST /advanced/campaigns/{id}/manual-tasks/status` closes one,
+with `{"contactId": "...", "taskId": "...", "status": "ok"}`. A task can be closed only
+once. Pausing the campaign deletes the pending tasks; they come back after the next start,
+when the contacts reach the task step again.
 
 ## Output
 
@@ -342,8 +413,8 @@ MCP tool, or close the task in the app, rather than guessing its fields.
 # Replies, Q4 SaaS founders, run of 2026-03-18
 
 Source: campaign activity feed, 3 pages read (74 activities), newest 2026-03-18 09:12.
-This is what the campaign received. It is not your mailbox: the API has no endpoint
-that lists one.
+Threads read in the Emelia inbox. Only the replies to this campaign are here: the rest
+of the mailbox was not sorted.
 
 17 replies since the last run: 4 interested, 2 meetings, 3 not now, 5 out of office,
 1 wrong person, 3 unsubscribes (blacklisted), 1 negative. 2 bounces removed.
@@ -366,9 +437,9 @@ Decided by: "comment vous vous comparez", a direct question, not a brush off.
 > facture pas à l'ingestion. Je peux vous montrer le calcul sur vos volumes.
 > 20 minutes jeudi ou vendredi matin ?
 
-Send with: POST /emails/reply, providerId 65e0aa11bb22cc33dd44ee55,
-to claire.fontaine@nexora.fr, subject "Re: Nexora + Postgres 16"
-No messageId available, so this goes out as a new email, not a threaded reply.
+Draft ready in the Emelia inbox, in her conversation (draft_reply), from paul@get-acme.com.
+Review: <link returned by draft_reply>
+Send with: send_draft after your yes, or from the inbox with the link.
 
 ---
 
@@ -401,8 +472,9 @@ Done: follow_up_date set to 2026-03-31 on marc@vlantis.io.
 
 ## Checks before finishing
 
-- The file says where the replies came from and what that does not cover. A user must
-  never come away thinking their mailbox was read.
+- The file says where the replies came from (the feed, the inbox, or both) and that the
+  rest of the mailbox was not sorted. A user must never think a reply was handled when it
+  was only read.
 - The feed was paginated to the end, or the file says at which page you stopped and
   why. Exactly 30 replies is a page boundary, not a total: check it.
 - Every reply pulled is in the file with a bucket and the phrase that decided it. No
@@ -417,12 +489,19 @@ Done: follow_up_date set to 2026-03-31 on marc@vlantis.io.
 
 ## Failure modes
 
-- **The user expects their inbox.** They ask why a message from a prospect who wrote
-  from a different address is missing. It is missing because the API has no inbox
-  listing: only what Emelia attached to a campaign contact appears here. Say it plainly,
-  and point them at the Emelia app for the rest.
+- **A reply is missing from the feed.** The prospect wrote from another address, or
+  Emelia could not attach the message to a contact. Search the inbox by domain
+  (`search_emails { "query": "nexora.fr" }`) or by the subject of the step. Without the
+  inbox, it is visible only in the Emelia app: say so.
+- **The inbox tools are not there.** The Inbox was never opened in Emelia. Ask the user to
+  open the **Inbox** tab once, wait a few minutes and reconnect the server. Until then,
+  work from the feed and answer with `POST /emails/reply`, which needs the key: with the
+  MCP server alone, the drafts wait in `replies.md` and the user sends them from the app.
 - **Only 30 replies come back.** That is one page. The MCP tool cannot ask for the
-  next one, so switch to REST and loop on `page`, or pull the CSV export.
+  next one: use `export_campaign` with `type: "replies"`, or loop on `page` over REST.
+- **`POST /drafts/send` answers 500.** The reference warns that the email may have left
+  anyway, and that the idempotency key is then released. Look in the `SENT` folder before
+  retrying, or the prospect gets it twice.
 - **A reply is attached to the wrong contact.** Emelia matches a reply by sender address,
   message id or thread id. A reply from a colleague's address on a forwarded thread lands
   on the original contact. Read `reply.senderName` and the text before answering by name.
@@ -443,14 +522,14 @@ Done: follow_up_date set to 2026-03-31 on marc@vlantis.io.
 
 ## Limits
 
-This skill reads the replies to your campaigns. **It does not read your mailbox**, and
-no Emelia endpoint does: there is no inbox listing, no thread search, no way to see a
-message that arrived outside a campaign or that Emelia could not match to a contact.
-Those are handled in the Emelia app or in the mailbox itself. Anything that claims
-otherwise about the email API is wrong.
+This skill handles the replies to your campaigns. Once the Inbox is set up in Emelia it
+reads their threads and answers in them, through the inbox tools of the MCP server or the
+Inbox API. It does not sort the rest of the mailbox, and it does not touch labels, views,
+inbox filters or rules: those have their own tools. Without the Inbox, it sees only what
+the activity feed carries, and its answers start a new email.
 
-LinkedIn is the exception, with a real inbox API, and that one is not in the public
-specification: use it, and expect it to change.
+The LinkedIn conversation routes are not in the public specification: use them, and
+expect them to change.
 
 It cannot book a meeting or touch a calendar, cannot see whether your reply landed in
 spam, and cannot judge a reply that says nothing (a bare "ok" is ambiguous and it will

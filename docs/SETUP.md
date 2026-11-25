@@ -87,8 +87,9 @@ REST API does not offer: campaign statistics (`get_campaign_stats`), warmup stat
 management (`create_list`, `list_lists`, `get_list`, `rename_list`, `delete_list`,
 `get_list_contacts`, `update_contact`, `delete_contact`), `find_contact`, which looks a
 contact up across every list in the account, LinkedIn extractions
-(`create_linkedin_scraper`) and, once the Inbox is open in Emelia, the inbox. When it
-is connected, the skills use it first.
+(`create_linkedin_scraper`). Once the Inbox is open in Emelia, it also carries the inbox
+tools, which REST offers too, through the Inbox API. When it is connected, the skills
+use it first.
 
 Without it and without a key, `/outreach deliverability` cannot read your warmup state
 and says so rather than assuming it is fine.

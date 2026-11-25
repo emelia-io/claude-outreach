@@ -29,12 +29,12 @@ No command at all is fine: `/outreach` asks what you want to do.
 | [`sequence`](#outreach-sequence-spec) | `campaign.json` | no | no |
 | [`deliverability`](#outreach-deliverability) | `deliverability.md` | no | no |
 | [`campaign`](#outreach-campaign-spec) | `campaign.json` | no, sending does | yes, always |
-| [`inbox`](#outreach-replies) | `inbox.md` | no | yes, before any reply leaves |
+| [`replies`](#outreach-replies) | `replies.md` | no | yes, before any reply leaves |
 | [`audit`](#outreach-audit-campaign) | `audit.md` | no | no |
 
 The six files named in the dispatcher contract (`icp.json`, `leads.csv`,
 `enrichment.json`, `sequence.md`, `campaign.json`, `report.md`) are the ones every
-step agrees on. The others (`leads-dropped.csv`, `deliverability.md`, `inbox.md`,
+step agrees on. The others (`leads-dropped.csv`, `deliverability.md`,
 `replies.md`) sit next to them in the same directory and are safe to delete.
 
 ---
@@ -344,8 +344,9 @@ office, unsubscribe, angry), drafts an answer for each, and leaves them for you.
 Unsubscribes are processed straight away, because that one is not optional.
 
 - **Argument** none, or a campaign name to restrict the triage.
-- **Reads** `outreach/campaign.json`, the campaign activity feed, `EMELIA_API_KEY`
-- **Writes** `outreach/inbox.md` with one block per reply and its draft
+- **Reads** `outreach/campaign.json`, the campaign activity feed, and the threads in
+  the Emelia inbox once it is set up, through the MCP server or `EMELIA_API_KEY`
+- **Writes** `outreach/replies.md` with one block per reply and its draft
 - **Skill** [`outreach-replies`](../skills/outreach-replies/SKILL.md)
 - **Credits** none
 - **Stops** yes. Nothing is sent without your explicit yes, per message.

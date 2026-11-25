@@ -139,14 +139,16 @@ Two transports, and a skill picks in this order.
 connects it by signing in with their Emelia account (OAuth) or with an API key. It
 covers the whole API except the legacy campaigns, plus what REST does not offer:
 `get_campaign_stats`, `get_warmup_status`, `set_warmup`, `list_email_providers`, the
-list management tools, `find_contact`, LinkedIn extractions, and the inbox. A skill
-detects it by looking for a tool whose name ends in `__list_campaigns` or
+list management tools, `find_contact` and LinkedIn extractions. Once the Inbox is open
+in Emelia it also carries the inbox tools, which REST offers too, through the Inbox API.
+A skill detects it by looking for a tool whose name ends in `__list_campaigns` or
 `__get_campaign_sequence_guide`, whatever the prefix, then confirms with one
 `list_campaigns` call, which reads and costs nothing.
 
 **REST, `https://api.emelia.io`, header `Authorization: <key>`, when `EMELIA_API_KEY`
 is set.** The documented surface: enrichment jobs, contacts, lists, campaign creation,
-activities, replies, blacklist, plus the campaign configuration and launch routes that
+activities, replies, blacklist, the Inbox API under `/inbox/api/v1` for the emails
+themselves, plus the campaign configuration and launch routes that
 the dispatcher lists and that are not in the public documentation yet. The bundled
 scripts only speak REST, so they need the key even when the MCP server is connected:
 signed in with OAuth, the access token stays inside Claude Code.
